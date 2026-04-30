@@ -2277,6 +2277,24 @@ document.getElementById('console-script').textContent = buildConsoleScript();
 
 // Auto-load if embedded data is present (bookmarklet "open dashboard" path)
 if (window.__EMBEDDED_DATA){ DATA = window.__EMBEDDED_DATA; render(); }
+
+// Auto-load JSON sitting next to the dashboard (e.g. ./data/latest.json on
+// GitHub Pages). Lets workers just open the URL — no clicks needed. If the
+// file isn't there or doesn't parse, fall back silently to the existing
+// "Fetch Live Data / Load JSON" buttons.
+(async () => {
+  if (DATA) return; // embedded data already loaded
+  try {
+    const r = await fetch('./data/latest.json', {cache: 'no-store'});
+    if (!r.ok) return;
+    const j = await r.json();
+    if (!j || !Array.isArray(j.permits)) return;
+    DATA = j;
+    render();
+  } catch(e){
+    // Silent — empty-state UI will show.
+  }
+})();
 </script>
 </body>
 </html>
