@@ -1,0 +1,2282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Cityworks Permit Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{
+    --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --border:#334155;
+    --text:#e2e8f0; --muted:#94a3b8; --accent:#3b82f6; --accent2:#60a5fa;
+    --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; --curr:#06b6d4; --pending:#64748b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--text);background:linear-gradient(180deg,#0b1220,#0f172a 220px);min-height:100vh}
+  header{padding:14px 22px;border-bottom:1px solid var(--border);background:rgba(15,23,42,.85);backdrop-filter:blur(8px);position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header h1{margin:0;font-size:17px;font-weight:600;letter-spacing:.3px}
+  header .stats{color:var(--muted);font-size:13px}
+  header .spacer{flex:1}
+  button,.btn{background:var(--accent);color:white;border:0;padding:8px 14px;border-radius:6px;font-weight:500;cursor:pointer;font-size:13px;transition:background .15s}
+  button:hover,.btn:hover{background:var(--accent2)}
+  button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+  button.secondary:hover{background:#334155}
+  .tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:3px}
+  .tabs button{background:transparent;color:var(--muted);font-weight:500;padding:6px 12px}
+  .tabs button.active{background:var(--accent);color:white}
+  .tabs .count{display:inline-block;background:rgba(255,255,255,.18);color:inherit;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:6px}
+  .toolbar{padding:10px 22px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--border)}
+  .toolbar input,.toolbar select{background:var(--panel);color:var(--text);border:1px solid var(--border);padding:7px 10px;border-radius:6px;font-size:13px;min-width:160px}
+  .toolbar input:focus,.toolbar select:focus{outline:none;border-color:var(--accent)}
+  main{padding:18px 22px;max-width:1800px;margin:0 auto}
+
+  .batches{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(520px,1fr))}
+  /* Review Progress tab */
+  .rev-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+  .rev-summary .card-compact{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px;text-align:center}
+  .rev-summary .lbl{color:var(--muted);font-size:11px;letter-spacing:.3px;text-transform:uppercase}
+  .rev-summary .val{font-size:22px;font-weight:700;margin-top:2px}
+  .rev-controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  .rev-chart{background:#020617;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px}
+  .rev-legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:10px;font-size:11px;color:var(--muted)}
+  .rev-legend-item{display:flex;align-items:center;gap:5px}
+  .rev-legend-dot{width:10px;height:10px;border-radius:2px}
+  .rev-table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:8px}
+  .rev-table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .rev-table th,.rev-table td{padding:6px 8px;text-align:right;white-space:nowrap}
+  .rev-table thead th{background:var(--panel2);color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:1}
+  .rev-table td.label,.rev-table th.label{text-align:left;color:var(--text);font-weight:500}
+  .rev-table tbody tr{border-bottom:1px solid #1e293b}
+  .rev-table tbody tr:hover{background:#0b1220}
+  .rev-table td.zero{color:#334155}
+  .rev-table td.total{background:#0b1220;font-weight:700}
+  .rev-table tfoot td{background:var(--panel2);font-weight:700;border-top:2px solid var(--border)}
+
+  /* Batch status overview (top of Batches tab) */
+  .batch-overview{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:16px}
+  .batch-overview-title{font-size:13px;font-weight:600;letter-spacing:.2px}
+  .batch-overview-sub{color:var(--muted);font-size:11px;margin-top:2px}
+  .batch-overview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px;margin-top:10px}
+  .bo-card{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+  .bo-card.uniform{border-left:3px solid var(--ok)}
+  .bo-card.lag{border-left:3px solid var(--warn)}
+  .bo-card.nostart{border-left:3px solid var(--border)}
+  .bo-hdr{display:flex;align-items:center;gap:8px}
+  .bo-num{background:var(--accent);color:white;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex:0 0 auto}
+  .bo-title{font-weight:600;font-size:13px}
+  .bo-status{margin-left:auto;font-size:11px;padding:2px 8px;border-radius:99px}
+  .bo-status.uniform{background:#052e1a;color:#86efac;border:1px solid #166534}
+  .bo-status.lag{background:#3b2a0a;color:#fcd34d;border:1px solid #7c5c1d}
+  .bo-status.nostart{background:var(--panel);color:var(--muted);border:1px solid var(--border)}
+  .bo-strip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:3px;margin-top:2px}
+  .bo-tile{border-radius:4px;padding:4px 4px;min-height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:10px;border:1px solid transparent}
+  .bo-tile .t-name{font-weight:600;color:#0f172a;line-height:1.05;text-align:center;font-size:9.5px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .bo-tile .t-count{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;color:#0f172a;font-size:10.5px}
+  .bo-tile.pass{background:#10b981}
+  .bo-tile.lag{background:#f59e0b}
+  .bo-tile.none{background:#1e293b;border:1px dashed #334155}
+  .bo-tile.none .t-name, .bo-tile.none .t-count{color:var(--muted)}
+  .bo-laggers{margin-top:4px;padding:6px 8px;background:#0b1220;border-radius:4px;border-left:2px solid var(--warn);font-size:11.5px;line-height:1.5;color:#cbd5e1}
+  .bo-laggers b{color:#fcd34d;font-weight:600}
+
+  .batch{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .batch-head{padding:10px 14px;background:var(--panel2);display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--border)}
+  .batch-title{display:flex;align-items:center;gap:10px}
+  .batch-num{background:var(--accent);color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:0 0 auto}
+  .batch-name{font-weight:600;font-size:14px}
+  .batch-stats{color:var(--muted);font-size:12px}
+  .batch-progress{height:4px;background:var(--border);overflow:hidden}
+  .batch-progress-fill{height:100%;background:linear-gradient(90deg,var(--ok),var(--curr));transition:width .3s}
+  .batch-body{padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+  /* Inside a batch: hide per-permit horizontal scrollbars and drive scroll via the batch slider */
+  .batch-body .workflow{overflow-x:hidden;scrollbar-width:none}
+  .batch-body .workflow::-webkit-scrollbar{display:none}
+  .batch-scrub-row{position:sticky;top:0;z-index:3;background:var(--panel);padding:8px 0 10px;margin:-6px -2px 6px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+  .batch-scrub-row label{color:var(--muted);font-size:11px;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap}
+  .batch-scrubber{flex:1;accent-color:var(--accent);cursor:pointer}
+  .batch-scrub-pos{color:var(--muted);font-size:11px;min-width:78px;text-align:right;font-variant-numeric:tabular-nums}
+
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(560px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px}
+  .card-compact{padding:10px 12px;gap:6px;background:var(--panel2);border:1px solid var(--border);border-radius:8px}
+  .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .case-num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--accent2);font-weight:600}
+  .case-num a{color:var(--accent2);text-decoration:none}
+  .case-num a:hover{text-decoration:underline}
+  .case-title{font-size:14px;font-weight:600;margin:2px 0}
+  .case-addr{color:var(--text);font-size:12px}
+  .case-sub{color:var(--muted);font-size:11px}
+  .status-badge{font-size:10px;padding:2px 7px;border-radius:99px;font-weight:600;letter-spacing:.4px;white-space:nowrap}
+  .status-default{background:#1e293b;color:#94a3b8;border:1px solid #334155}
+  .status-ISSUE,.status-REG\ ACTIVE{background:#052e1a;color:#86efac;border:1px solid #166534}
+  .status-IN\ REVIEW{background:#082f49;color:#7dd3fc;border:1px solid #0c4a6e}
+  .status-ACCEPTED{background:#164e63;color:#a5f3fc;border:1px solid #155e75}
+
+  .workflow{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:4px 2px}
+  .milestone-block{display:flex;flex-direction:column;flex:0 0 auto;padding:0 6px 0 0;border-right:1px dashed #334155;margin-right:6px}
+  .milestone-block:last-child{border-right:none;margin-right:0}
+  .milestone-label{font-size:9px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase;margin-bottom:4px;padding-left:2px}
+  .milestone-tasks{display:flex;gap:0}
+  .wf-step{display:flex;flex-direction:column;align-items:center;min-width:64px;flex:0 0 auto;position:relative;padding:0 2px}
+  .wf-step + .wf-step::before{content:"";position:absolute;left:-8px;top:12px;width:16px;height:2px;background:var(--border)}
+  .wf-step.done + .wf-step::before{background:var(--ok)}
+  .wf-dot{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;border:2px solid var(--border);background:var(--pending);position:relative;z-index:1;cursor:help}
+  .wf-dot.done{background:var(--ok);border-color:var(--ok)}
+  .wf-dot.curr{background:var(--curr);border-color:var(--curr);box-shadow:0 0 0 3px rgba(6,182,212,.25)}
+  .wf-dot.rejected{background:var(--err);border-color:var(--err)}
+  .wf-dot.available{background:var(--warn);border-color:var(--warn)}
+  .wf-label{font-size:9px;color:var(--muted);text-align:center;margin-top:4px;line-height:1.15;max-width:70px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .wf-date{font-size:8px;color:var(--muted);margin-top:1px}
+  .wf-step.done .wf-label{color:#86efac}
+  .wf-step.rejected .wf-label{color:#fca5a5}
+  .wf-step.curr .wf-label{color:var(--text);font-weight:600}
+
+  .progress{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted)}
+  .progress-bar{flex:1;height:4px;background:var(--border);border-radius:4px;margin:0 8px;overflow:hidden}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--ok),var(--curr));transition:width .3s}
+
+  /* Failed / Scheduled inspection styling */
+  .ms-section{margin:18px 0}
+  .ms-header{display:flex;align-items:center;gap:10px;margin:8px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+  .ms-chip{background:var(--accent);color:white;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600}
+  .ms-chip.sched{background:var(--curr)}
+  .ms-chip.fail{background:var(--err)}
+  .ms-chip.ready{background:var(--warn)}
+  .ms-header h2{margin:0;font-size:14px;font-weight:600}
+  .ms-header .ms-count{color:var(--muted);font-size:12px}
+  .insp-list{display:flex;flex-direction:column;gap:10px}
+  .insp-row{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:minmax(240px,1fr) auto;gap:6px 18px;align-items:start}
+  .insp-row.fail{border-left:3px solid var(--err)}
+  .insp-row.sched{border-left:3px solid var(--curr)}
+  .insp-row.ready{border-left:3px solid var(--warn)}
+  .insp-top{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .insp-task{font-weight:600;font-size:14px}
+  .insp-case{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--accent2)}
+  .insp-case a{color:var(--accent2);text-decoration:none}
+  .insp-case a:hover{text-decoration:underline}
+  .insp-addr{color:var(--muted);font-size:12px}
+  .insp-meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:12px;margin-top:2px}
+  .insp-meta b{color:var(--text);font-weight:500}
+  .insp-right{text-align:right;font-size:12px;color:var(--muted);white-space:nowrap}
+  .insp-right .when{color:var(--text);font-size:13px;font-weight:600}
+  .insp-notes{grid-column:1/-1;margin-top:8px;padding:10px 12px;background:#020617;border-radius:6px;border-left:3px solid var(--warn);font-size:12.5px;line-height:1.55;color:#cbd5e1;white-space:pre-wrap}
+  .insp-note{padding:4px 0;border-bottom:1px dashed #1e293b}
+  .insp-note:last-child{border-bottom:none}
+  .insp-note .who{font-weight:600;color:#e2e8f0}
+  .insp-note .on{color:var(--muted);font-size:11px;margin-left:6px}
+  .pill{display:inline-block;padding:1px 7px;border-radius:4px;font-size:10px;font-weight:600;background:var(--panel2);color:var(--muted);border:1px solid var(--border)}
+  .pill.danger{background:#3b0a0a;color:#fca5a5;border-color:#7f1d1d}
+  .pill.reins{background:#3b2a0a;color:#fcd34d;border-color:#7c5c1d}
+
+  /* Failed Inspections – redesigned ------------------------------------ */
+  .fail-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+  .fail-summary .card-compact{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px;text-align:center}
+  .fail-summary .lbl{color:var(--muted);font-size:11px;letter-spacing:.3px;text-transform:uppercase}
+  .fail-summary .val{font-size:22px;font-weight:700;margin-top:2px}
+  .fail-group{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px;border-left:3px solid var(--err)}
+  .fail-group.resolved{border-left-color:var(--ok)}
+  .fail-group-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+  .fail-task{font-weight:600;font-size:14px}
+  .fail-sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .fail-sub a{color:var(--accent2);text-decoration:none}
+  .status-tag{display:inline-block;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap}
+  .status-tag.ok{background:#052e1a;color:#86efac;border:1px solid #166534}
+  .status-tag.err{background:#3b0a0a;color:#fca5a5;border:1px solid #7f1d1d}
+  .status-tag.warn{background:#3b2a0a;color:#fcd34d;border:1px solid #7c5c1d}
+  .fail-group-body{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);display:flex;flex-direction:column;gap:8px}
+  .attempt{padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:#020617}
+  .attempt.fail{border-left:2px solid var(--err)}
+  .attempt.pass{border-left:2px solid var(--ok)}
+  .attempt.pending{border-left:2px solid var(--warn);border-style:dashed}
+  .attempt-hdr{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:12px;color:var(--muted)}
+  .attempt-num{font-weight:600;color:var(--text);min-width:72px}
+  .attempt-date{color:var(--text);font-weight:500}
+  .attempt-meta{color:var(--muted)}
+  .attempt-meta b{color:var(--text);font-weight:500}
+  .attempt-notes{margin-top:6px;padding:6px 10px;background:#0b1220;border-radius:4px;border-left:2px solid var(--warn);font-size:12px;line-height:1.5;color:#cbd5e1;white-space:pre-wrap}
+  .attempt-notes > div{padding:3px 0;border-bottom:1px dashed #1e293b}
+  .attempt-notes > div:last-child{border-bottom:none}
+
+  .empty{padding:60px;text-align:center;color:var(--muted)}
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+  .modal{background:var(--panel);border:1px solid var(--border);border-radius:14px;max-width:760px;width:100%;max-height:90vh;overflow:auto;padding:24px;position:relative}
+  .modal h2{margin:0 0 10px;font-size:18px}
+  .modal p{color:var(--muted);margin:6px 0 14px;line-height:1.55}
+  .modal-close{position:absolute;top:12px;right:16px}
+  .step{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:14px;margin:12px 0}
+  .step h3{margin:0 0 6px;font-size:14px}
+  .bookmarklet{display:inline-block;background:var(--accent);color:white;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;margin:8px 0;cursor:grab;user-select:none}
+  .bookmarklet:active{cursor:grabbing}
+  pre{background:#020617;border:1px solid var(--border);border-radius:6px;padding:10px;overflow:auto;font-size:11px;max-height:200px}
+  .file-input{display:none}
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+  .legend-item{display:flex;align-items:center;gap:5px}
+  .legend-dot{width:10px;height:10px;border-radius:50%}
+  a{color:var(--accent2)}
+  code{background:var(--panel2);padding:2px 6px;border-radius:4px;font-size:12px}
+  .unassigned-addr{color:var(--warn);font-size:11px;font-style:italic;padding:6px 10px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Cityworks Permit Dashboard</h1>
+  <div class="stats" id="stats">No data loaded</div>
+  <div class="spacer"></div>
+  <div class="tabs">
+    <button id="tab-batches" class="active">By Batch</button>
+    <button id="tab-all">All Permits</button>
+    <button id="tab-failed">Failed Inspections <span class="count" id="cnt-failed">0</span></button>
+    <button id="tab-scheduled">Scheduled <span class="count" id="cnt-sched">0</span></button>
+    <button id="tab-thisweek">This Week <span class="count" id="cnt-week">0</span></button>
+    <button id="tab-reviews">Review Progress <span class="count" id="cnt-reviews">0</span></button>
+    <button id="tab-cycle">Cycle Times</button>
+  </div>
+  <button id="btn-fetch">Fetch Live Data</button>
+  <button class="secondary" id="btn-load">Load JSON</button>
+  <button class="secondary" id="btn-help">How to Fetch</button>
+  <input type="file" id="file-input" class="file-input" accept=".json" />
+</header>
+
+<div class="toolbar">
+  <input id="search" placeholder="Search permit, address, name, task, inspector..." />
+  <select id="filter-status"><option value="">All statuses</option></select>
+  <div class="legend">
+    <span class="legend-item"><span class="legend-dot" style="background:var(--ok)"></span>Completed</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--curr)"></span>Scheduled</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--warn)"></span>Available</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--pending)"></span>Pending</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--err)"></span>Failed / Rejected</span>
+  </div>
+</div>
+
+<main id="main">
+  <div class="empty">
+    <h2 style="color:var(--text)">No permits loaded yet</h2>
+    <p>Click <b>Fetch Live Data</b> to pull permits from Cityworks, or <b>Load JSON</b> if you already exported a snapshot.</p>
+    <p><button id="btn-help2">Show me how to fetch</button></p>
+  </div>
+</main>
+
+<div class="modal-backdrop" id="modal" style="display:none">
+  <div class="modal">
+    <button class="secondary modal-close" onclick="closeModal()">Close</button>
+    <h2>Fetching permit data from Cityworks</h2>
+    <p>Because this HTML file runs locally (<code>file://</code>), CORS prevents direct calls to <code>cityworks.cleburne.net</code>. Use one of these methods.</p>
+
+    <div class="step">
+      <h3>Option A &mdash; One-click dashboard (recommended)</h3>
+      <p>Drag this button to your bookmarks bar. While logged into Cityworks PublicAccess, click it. A new tab opens with the full dashboard &mdash; no file downloads needed.</p>
+      <a class="bookmarklet" id="bookmarklet-open" href="#">&#128279; Cityworks Dashboard</a>
+    </div>
+
+    <div class="step">
+      <h3>Option B &mdash; Download JSON snapshot</h3>
+      <p>Drag this button to your bookmarks bar. While on Cityworks, click it to download <code>permits.json</code>, then use <b>Load JSON</b> here.</p>
+      <a class="bookmarklet" id="bookmarklet-download" href="#">&#128190; Cityworks &rarr; JSON</a>
+    </div>
+
+    <div class="step">
+      <h3>Option C &mdash; Paste in browser console</h3>
+      <p>On the Cityworks PublicAccess tab, press <code>F12</code>, go to Console, paste the script, Enter. It downloads <code>permits.json</code>.</p>
+      <pre id="console-script"></pre>
+      <button class="secondary" onclick="copyScript()">Copy script</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="debug-modal" style="display:none">
+  <div class="modal" style="max-width:900px">
+    <button class="secondary modal-close" onclick="closeDebug()">Close</button>
+    <h2>Data Health / Debug</h2>
+    <p>This shows exactly which fields are present in your loaded JSON. If <code>Address</code>, <code>StartPoint</code>, or <code>TaskType</code> coverage is low, re-fetch with the bookmarklet from this dashboard (older snapshots may lack these fields).</p>
+    <div class="debug-body"></div>
+  </div>
+</div>
+
+<script>
+// ======================================================================
+// BATCH DEFINITIONS
+// ======================================================================
+const BATCHES = [
+  [1,  ["1421 Dry Creek Dr","1419 Dry Creek Dr","1426 Dry Creek Dr","1424 Dry Creek Dr"]],
+  [2,  ["1417 Dry Creek Dr","1415 Dry Creek Dr","1422 Dry Creek Dr","1420 Dry Creek Dr"]],
+  [3,  ["1413 Dry Creek Dr","1411 Dry Creek Dr","1418 Dry Creek Dr","1416 Dry Creek Dr"]],
+  [4,  ["1409 Dry Creek Dr","1407 Dry Creek Dr","1414 Dry Creek Dr","1412 Dry Creek Dr"]],
+  [5,  ["1405 Dry Creek Dr","1403 Dry Creek Dr","1410 Dry Creek Dr","1408 Dry Creek Dr","1406 Dry Creek Dr"]],
+  [6,  ["1428 Brushy Creek Dr","1426 Brushy Creek Dr","1427 Brushy Creek Dr"]],
+  [7,  ["1424 Brushy Creek Dr","1422 Brushy Creek Dr","1425 Brushy Creek Dr","1423 Brushy Creek Dr"]],
+  [8,  ["1420 Brushy Creek Dr","1418 Brushy Creek Dr","1421 Brushy Creek Dr","1419 Brushy Creek Dr"]],
+  [9,  ["1416 Brushy Creek Dr","1414 Brushy Creek Dr","1417 Brushy Creek Dr","1415 Brushy Creek Dr"]],
+  [10, ["1412 Brushy Creek Dr","1410 Brushy Creek Dr","1413 Brushy Creek Dr","1411 Brushy Creek Dr"]],
+  [11, ["1408 Brushy Creek Dr","1406 Brushy Creek Dr","1409 Brushy Creek Dr","1407 Brushy Creek Dr"]],
+  [12, ["1404 Brushy Creek Dr","1402 Brushy Creek Dr","1405 Brushy Creek Dr","1403 Brushy Creek Dr"]],
+  [13, ["909 McAnear Street","911 McAnear Street","913 McAnear Street","1429 Brushy Creek Dr"]],
+  [14, ["1434 Trail Creek Dr","1432 Trail Creek Dr","1435 Trail Creek Dr","1433 Trail Creek Dr"]],
+  [15, ["1430 Trail Creek Dr","1428 Trail Creek Dr","1431 Trail Creek Dr","1429 Trail Creek Dr"]],
+  [16, ["1426 Trail Creek Dr","1424 Trail Creek Dr","1427 Trail Creek Dr","1425 Trail Creek Dr"]],
+  [17, ["1422 Trail Creek Dr","1420 Trail Creek Dr","1423 Trail Creek Dr","1421 Trail Creek Dr"]],
+  [18, ["1418 Trail Creek Dr","1416 Trail Creek Dr","1419 Trail Creek Dr","1417 Trail Creek Dr"]],
+  [19, ["1414 Trail Creek Dr","1412 Trail Creek Dr","1415 Trail Creek Dr","1413 Trail Creek Dr"]],
+  [20, ["1410 Trail Creek Dr","1408 Trail Creek Dr","1411 Trail Creek Dr","1409 Trail Creek Dr"]],
+  [21, ["1406 Trail Creek Dr","1404 Trail Creek Dr","1407 Trail Creek Dr","1405 Trail Creek Dr"]],
+  [22, ["1402 Trail Creek Dr","1400 Trail Creek Dr","1403 Trail Creek Dr"]],
+  [23, ["1416 Holly St","1414 Holly St","1306 Holly St","1304 Holly St"]],
+  [24, ["1206 Holly St","1300 Holly St","1302 Holly St"]],
+  [25, ["1401 Trail Creek Dr","1400 Brushy Creek Dr","1401 Brushy Creek Dr","1401 Dry Creek Dr"]],
+  [26, ["1432 Brushy Creek Dr","1430 Brushy Creek Dr","1428 Dry Creek Dr","1423 Dry Creek Dr"]],
+];
+
+// Case numbers to always exclude (e.g., contractor registrations).
+const EXCLUDED_CASES = new Set(['CON-005561']);
+
+// Normalize an address so "1414 Holly St, Cleburne, TX 76033",
+// "1414 HOLLY STREET", "1414 Holly Street Cleburne TX" all collapse
+// to the same key. We generate MULTIPLE key forms per address and try
+// them all, so a permit stored as "1414 HOLLY" can still match
+// "1414 Holly St".
+function normStr(s){
+  if (!s) return '';
+  return String(s).toUpperCase()
+    .replace(/[,.#]/g,' ')
+    .replace(/\bSTREET\b/g,'ST')
+    .replace(/\bDRIVE\b/g,'DR')
+    .replace(/\bROAD\b/g,'RD')
+    .replace(/\bAVENUE\b/g,'AVE')
+    .replace(/\bBOULEVARD\b/g,'BLVD')
+    .replace(/\bLANE\b/g,'LN')
+    .replace(/\bCIRCLE\b/g,'CIR')
+    .replace(/\bCOURT\b/g,'CT')
+    .replace(/\bPLACE\b/g,'PL')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+// Produce a set of lookup keys for a given address string.
+// Example "1414 Holly St, Cleburne, TX 76033" yields:
+//   ["1414 HOLLY ST", "1414 HOLLY", "1414 HOLLY ST CLEBURNE"]
+function addrKeys(s){
+  const n = normStr(s); if (!n) return [];
+  const toks = n.split(' ').filter(Boolean);
+  if (!toks.length) return [];
+  const keys = new Set();
+  // First 3 tokens: "1414 HOLLY ST"
+  if (toks.length >= 3) keys.add(toks.slice(0,3).join(' '));
+  // First 2 tokens: "1414 HOLLY" — handles cases where suffix missing
+  if (toks.length >= 2) keys.add(toks.slice(0,2).join(' '));
+  // First 4 tokens: "1421 DRY CREEK DR" — handles multi-word street names
+  if (toks.length >= 4) keys.add(toks.slice(0,4).join(' '));
+  return [...keys];
+}
+
+// Legacy single-key helper retained for filter/display text
+function normAddr(s){
+  const k = addrKeys(s);
+  return k[0] || '';
+}
+
+// Build batch lookup using ALL key variants for every batch address
+const ADDR_TO_BATCH = {};
+for (const [num, addrs] of BATCHES) {
+  addrs.forEach((a, i) => {
+    for (const k of addrKeys(a)){
+      if (!ADDR_TO_BATCH[k]) ADDR_TO_BATCH[k] = {batch:num, pos:i, canonical:a};
+    }
+  });
+}
+
+// ======================================================================
+// FETCH SCRIPT (bookmarklet + console)
+// ======================================================================
+function cityworksFetchScript(){
+  return (async function(){
+    const BASE = location.origin + '/Permits/services/';
+    const post = (path, obj) => fetch(BASE+path, {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'data='+encodeURIComponent(JSON.stringify(obj||{}))
+    }).then(r => r.json()).catch(()=>({Value:[]}));
+
+    const tab = await fetch(BASE+'HomePage/GetHomeTabResults', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'data=1'
+    }).then(r => r.json());
+
+    const EXCLUDED = new Set(['CON-005561']);
+
+    // Keep the whole permit object from the home tab — don't cherry-pick fields,
+    // since different Cityworks versions expose address/milestone data under
+    // different names. The HTML's defensive getters will handle naming.
+    const permits = (tab.Value||[])
+      .filter(p => p && p.CaseType !== 'BPCONTRACT' && !EXCLUDED.has(p.CaseNumber))
+      .map(p => Object.assign({}, p));
+
+    // Helper: derive a human-readable address from various shapes the
+    // CaseAddress endpoint might return.
+    function deriveAddress(rec){
+      if (!rec) return null;
+      if (rec.FormatedAddress)  return rec.FormatedAddress;
+      if (rec.FormattedAddress) return rec.FormattedAddress;
+      if (rec.FullAddress)      return rec.FullAddress;
+      const pieces = [
+        rec.HouseNumber || rec.StreetNumber,
+        rec.StreetPrefix || rec.PreDirection,
+        rec.StreetName,
+        rec.StreetType || rec.StreetSuffix,
+        rec.PostDirection
+      ].filter(Boolean);
+      const line1 = pieces.join(' ').trim();
+      return line1 || null;
+    }
+
+    async function fetchAddress(caObjectId){
+      // Try a sequence of known endpoints; the first that returns data wins.
+      const tries = [
+        ['CaseAddress/SearchObject',  {CaObjectId:caObjectId}],
+        ['CaseAddress/ByCaObjectId',  {CaObjectId:caObjectId}],
+        ['CaseAddress/Search',        {CaObjectId:caObjectId}],
+        ['CaseAddress/ByCaseObjectId',{CaseObjectId:caObjectId}],
+        ['CaseAddress',               {CaObjectId:caObjectId}],
+        ['Address/SearchObject',      {CaObjectId:caObjectId}],
+        ['Case/GetDetailsByCaObjectId', {CaObjectId:caObjectId}],
+        ['CaseObject/GetCaseDetail',    {CaObjectId:caObjectId}],
+      ];
+      for (const [path,body] of tries){
+        const r = await post(path, body);
+        // Some endpoints return {Value:[...]} others return {Value:{Addresses:[...]}}
+        let rec = null;
+        if (r && r.Value){
+          if (Array.isArray(r.Value) && r.Value.length) rec = r.Value[0];
+          else if (r.Value.Addresses && r.Value.Addresses.length) rec = r.Value.Addresses[0];
+          else if (r.Value.Address) rec = r.Value.Address;
+          else if (typeof r.Value === 'object' && !Array.isArray(r.Value)) rec = r.Value;
+        }
+        if (rec){
+          const addr = deriveAddress(rec);
+          if (addr) return {addr, record: rec};
+        }
+      }
+      return {addr:null, record:null};
+    }
+
+    const CONC = 6;
+    const idx = {n:0};
+    async function worker(){
+      while (true) {
+        const i = idx.n++; if (i >= permits.length) return;
+        const p = permits[i];
+        try {
+          // Tasks — keep ALL fields so milestone/type/comments fields survive
+          // regardless of which field name the server uses.
+          const tr = await post('CaseTask/ByCaObjectId', {CaObjectId:p.CaObjectId, CheckRelatedItems:true});
+          p.Tasks = (tr.Value||[]).map(t => {
+            const o = Object.assign({}, t);
+            if (o.TaskDesc) o.TaskDesc = String(o.TaskDesc).trim();
+            if (Array.isArray(o.CaTaskCommentsItemList)){
+              o.Comments = o.CaTaskCommentsItemList.map(c => ({
+                text: (c.Commenttext || c.CommentText || '').trim(),
+                by: (c.CreatedByLoginId || c.LoginId || '').trim(),
+                date: c.DateCreated || c.CreatedDate || null
+              }));
+            } else if (!Array.isArray(o.Comments)) {
+              o.Comments = [];
+            }
+            return o;
+          });
+
+          // Address — try multiple endpoints / shapes.
+          const {addr, record} = await fetchAddress(p.CaObjectId);
+          if (addr) p.Address = addr;
+          if (record) p.AddressRecord = record;   // retained for debug
+          if (!p.Address) p.Address = p.Location || null;
+        } catch(e) { p.Tasks = p.Tasks || []; p._err = e.message; }
+      }
+    }
+    await Promise.all(Array.from({length:CONC}, worker));
+    // Summary for the console so we can diagnose without loading the dashboard.
+    let withAddr=0, totTasks=0, tasksWithMs=0, tasksWithType=0, tasksWithComments=0;
+    const msFieldHits = {};
+    for (const p of permits){
+      if (p.Address) withAddr++;
+      for (const t of (p.Tasks||[])){
+        totTasks++;
+        for (const k of ['StartPoint','Milestone','TaskGroup','Tab','PointOfOrigin','TaskPoint']){
+          if (t[k] != null && t[k] !== ''){ tasksWithMs++; msFieldHits[k]=(msFieldHits[k]||0)+1; break; }
+        }
+        if (t.TaskType) tasksWithType++;
+        if (Array.isArray(t.Comments) && t.Comments.length) tasksWithComments++;
+      }
+    }
+    try {
+      console.log('[Cityworks Dashboard] fetch complete');
+      console.log('  permits:', permits.length, '| with address:', withAddr);
+      console.log('  tasks:', totTasks, '| with milestone:', tasksWithMs, '| with TaskType:', tasksWithType, '| with comments:', tasksWithComments);
+      console.log('  milestone field usage:', msFieldHits);
+      if (permits[0]){
+        console.log('  sample permit keys:', Object.keys(permits[0]));
+        if (permits[0].Tasks && permits[0].Tasks[0]){
+          console.log('  sample task keys:', Object.keys(permits[0].Tasks[0]));
+        }
+      }
+    } catch(e){}
+    return {generated:new Date().toISOString(), source:location.origin, totalPermits:permits.length, permits};
+  });
+}
+
+function buildDownloadBookmarklet(){
+  const fn = cityworksFetchScript.toString();
+  const body = '(async()=>{const p=await(' + fn + ')()();const b=new Blob([JSON.stringify(p,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="permits.json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);})()';
+  return 'javascript:void ' + encodeURIComponent(body);
+}
+
+function buildOpenBookmarklet(){
+  const fn = cityworksFetchScript.toString();
+  const html = document.documentElement.outerHTML.replace(/<\/script>/g, '<\\/script>');
+  const body = "(async()=>{"
+    + "const w=window.open('','_blank');"
+    + "if(!w){alert('Popup blocked. Please allow popups for this site and try again.');return;}"
+    + "w.document.write('<html><body style=\"background:#0f172a;color:#e2e8f0;font:14px system-ui;padding:40px\">Fetching permits from Cityworks\u2026</body></html>');"
+    + "const p=await(" + fn + ")()();"
+    + "const html=" + JSON.stringify(html) + ";"
+    + "const injected=html.replace('</body>','<script>window.__EMBEDDED_DATA='+JSON.stringify(p).replace(/</g,'\\\\u003c')+';<\\/script></body>');"
+    + "w.document.open();w.document.write(injected);w.document.close();"
+    + "})()";
+  return 'javascript:void ' + encodeURIComponent(body);
+}
+
+function buildConsoleScript(){
+  const fn = cityworksFetchScript.toString();
+  return '(async()=>{const p=await(' + fn + ')()();const b=new Blob([JSON.stringify(p,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="permits.json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);console.log("permits.json downloaded",p.totalPermits);})()';
+}
+
+// ======================================================================
+// UI
+// ======================================================================
+let DATA = null;
+let VIEW = 'batches';
+
+function openModal(){document.getElementById('modal').style.display='flex'}
+function closeModal(){document.getElementById('modal').style.display='none'}
+
+function copyScript(){
+  navigator.clipboard.writeText(buildConsoleScript()).then(()=>{
+    const btn = event.target; const old = btn.textContent;
+    btn.textContent = 'Copied!'; setTimeout(()=>btn.textContent = old, 1500);
+  });
+}
+
+async function tryFetch(){ openModal(); }
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function shortDate(d){ if (!d) return ''; try { return new Date(d).toLocaleDateString(undefined,{month:'numeric',day:'numeric',year:'2-digit'}); } catch(e){ return ''; } }
+function shortDateTime(d){ if (!d) return ''; try { return new Date(d).toLocaleString(undefined,{month:'numeric',day:'numeric',year:'2-digit',hour:'numeric',minute:'2-digit'}); } catch(e){ return ''; } }
+
+function permitUrl(p){
+  const base = (DATA && DATA.source) ? DATA.source : 'https://cityworks.cleburne.net';
+  return base + '/Permits/case/summary;id=' + (p.CaObjectId||'');
+}
+
+function caseLink(p){
+  // Kept for backward-compat but now links the street address instead of the case number.
+  return '<a href="' + esc(permitUrl(p)) + '" target="_blank" rel="noopener">' + esc(streetAddr(p) || '(open)') + '</a>';
+}
+
+// Strip "City, ST, ZIP" tail — keep only the street line the user cares about.
+function streetOnly(addr){
+  if (!addr) return '';
+  return String(addr).split(',')[0].trim();
+}
+function streetAddr(p){ return streetOnly(getAddr(p)); }
+
+// Permit → Batch number. Built once per data snapshot.
+let _batchMapCache = null;
+let _batchMapCacheStamp = null;
+function permitBatchMap(){
+  const stamp = DATA && DATA.permits ? DATA.permits.length + ':' + (DATA.fetched_at||'') : '';
+  if (_batchMapCache && _batchMapCacheStamp === stamp) return _batchMapCache;
+  const map = new Map();
+  const byAddr = {};
+  for (const p of allPermits()){
+    for (const k of permitKeys(p)){ if (!byAddr[k]) byAddr[k] = p; }
+  }
+  for (const [num, addrs] of BATCHES){
+    for (const a of addrs){
+      for (const k of addrKeys(a)){
+        const p = byAddr[k];
+        if (p && !map.has(p.CaObjectId)){ map.set(p.CaObjectId, num); break; }
+      }
+    }
+  }
+  _batchMapCache = map; _batchMapCacheStamp = stamp;
+  return map;
+}
+function batchOfPermit(p){
+  const m = permitBatchMap();
+  return p ? (m.get(p.CaObjectId) ?? null) : null;
+}
+
+function allPermits(){
+  if (!DATA) return [];
+  return (DATA.permits||[])
+    .filter(p => p.CaseType !== 'BPCONTRACT')
+    .filter(p => !EXCLUDED_CASES.has(p.CaseNumber));
+}
+
+function statusClass(t){
+  if (!t) return 'pending';
+  if (getCompleteFlag(t) === 'Y'){
+    const rc = getResultCode(t), rd = getResultDisplay(t).toUpperCase();
+    if (/REJECT|DENY|DENIED|FAIL|NO\s*SHOW/.test(rc) || /REJECT|DENY|DENIED|FAIL|NO\s*SHOW/.test(rd)) return 'rejected';
+    return 'done';
+  }
+  if (getAvailFlag(t) === 'Y') return 'available';
+  return 'pending';
+}
+
+function isInspection(t){
+  const tt = getTaskTypeRaw(t);
+  if (tt === 'INSPECTION') return true;
+  // Fallback: if no TaskType field, treat anything whose description mentions INSPECTION
+  if (!tt){
+    const d = getTaskDesc(t).toUpperCase();
+    if (/INSPECTION|INSPECT/.test(d)) return true;
+  }
+  return false;
+}
+
+function isFail(t){
+  if (getCompleteFlag(t) !== 'Y') return false;
+  const rc = getResultCode(t), rd = getResultDisplay(t).toUpperCase();
+  return /REJECT|DENY|DENIED|FAIL|NO\s*SHOW/.test(rc) || /REJECT|DENY|DENIED|FAIL|NO\s*SHOW/.test(rd);
+}
+
+function inspector(t){
+  const f = t.TaskCompletedByFirstName || t.FirstName || '';
+  const l = t.TaskCompletedByLastName  || t.LastName  || '';
+  const name = (f+' '+l).trim();
+  const login = t.TaskCompletedByLoginID || t.LoginId || '';
+  if (name && login) return name + ' (' + login + ')';
+  return name || login || '';
+}
+
+// Defensive field accessors — different Cityworks versions or older bookmarklet
+// captures may expose these under different names.
+function getAddr(p){
+  if (!p) return '';
+  return p.Address || p.FormatedAddress || p.FormattedAddress || p.FullAddress
+      || p.SiteAddress || p.Location || p.CaseName || p.Description || '';
+}
+function getMsRaw(t){
+  if (!t) return null;
+  // Try every field name Cityworks is known to use for milestone
+  for (const k of ['StartPoint','Milestone','TaskGroup','Tab','PointOfOrigin','TaskPoint','EndPoint']){
+    const v = t[k];
+    if (v != null && v !== '') return v;
+  }
+  return null;
+}
+function getTaskDesc(t){ return (t && (t.TaskDesc || t.TaskName || t.Task || '')).toString().trim(); }
+function getTaskTypeRaw(t){ return (t && (t.TaskType || t.Type || '')).toString().toUpperCase(); }
+function getResultCode(t){ return (t && (t.ResultCode || t.Result || '')).toString().toUpperCase(); }
+function getResultDisplay(t){ return (t && (t.ResultDisplay || t.ResultDesc || t.ResultCode || '')).toString(); }
+function getCompleteFlag(t){ return (t && (t.TaskCompleteFlag || t.CompleteFlag || '')).toString().toUpperCase(); }
+function getAvailFlag(t){ return (t && (t.TaskAvailableFlag || t.AvailableFlag || '')).toString().toUpperCase(); }
+function getCompleteDate(t){ return t && (t.TaskCompleteDate || t.CompleteDate || t.ActualEndDate || null); }
+function getTargetDate(t){ return t && (t.TargetStartDate || t.TargetEndDate || null); }
+function getComments(t){
+  if (!t) return [];
+  if (Array.isArray(t.Comments)) return t.Comments;
+  const list = t.CaTaskCommentsItemList;
+  if (Array.isArray(list)) return list.map(c => ({
+    text: (c.Commenttext || c.CommentText || '').trim(),
+    by: (c.CreatedByLoginId || c.LoginId || '').trim(),
+    date: c.DateCreated || c.CreatedDate || null
+  }));
+  return [];
+}
+
+// Sort by milestone then sequence. Always numeric — a task with milestone 2
+// must ALWAYS render before a task with milestone 3.
+function msOf(t){
+  const v = getMsRaw(t);
+  if (v == null || v === '') return 999;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 999;
+}
+function seqOf(t){
+  const v = t && (t.TaskSequence != null ? t.TaskSequence : t.Sequence);
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+function sortedTasks(tasks){
+  return (tasks||[]).slice().sort((a,b)=>{
+    const am = msOf(a), bm = msOf(b);
+    if (am !== bm) return am - bm;
+    return seqOf(a) - seqOf(b);
+  });
+}
+
+function workflowHtml(tasks){
+  if (!tasks.length) return '<div class="case-sub" style="padding:6px 0">No workflow tasks.</div>';
+  // Defensive re-sort to guarantee milestone order no matter the caller
+  tasks = sortedTasks(tasks);
+  const groups = [];
+  let currentMilestone = null, currentList = null;
+  for (const t of tasks){
+    const m = msOf(t);
+    if (m !== currentMilestone){ currentMilestone = m; currentList = []; groups.push({m, list:currentList}); }
+    currentList.push(t);
+  }
+  return '<div class="workflow">' + groups.map(g => {
+    const label = (g.m === 999) ? 'No milestone' : ('Milestone ' + g.m);
+    return '<div class="milestone-block">'
+      + '<div class="milestone-label">' + label + '</div>'
+      + '<div class="milestone-tasks">'
+      + g.list.map((t,i) => {
+          const cls = statusClass(t);
+          const done = getCompleteDate(t), target = getTargetDate(t);
+          const date = done ? shortDate(done) : shortDate(target);
+          const desc = getTaskDesc(t);
+          const rd = getResultDisplay(t);
+          const tip = desc
+            + (rd?' — '+rd:'')
+            + (target?' | Target '+shortDate(target):'')
+            + (done?' | Completed '+shortDate(done):'');
+          return '<div class="wf-step ' + cls + '">'
+            + '<div class="wf-dot ' + cls + '" title="' + esc(tip) + '">' + (i+1) + '</div>'
+            + '<div class="wf-label">' + esc(desc) + '</div>'
+            + '<div class="wf-date">' + date + '</div>'
+            + '</div>';
+        }).join('')
+      + '</div></div>';
+  }).join('') + '</div>';
+}
+
+function permitCard(p, compact){
+  const tasks = sortedTasks(p.Tasks||[]);
+  const doneCount = tasks.filter(t => getCompleteFlag(t) === 'Y').length;
+  const pct = tasks.length ? Math.round(doneCount/tasks.length*100) : 0;
+  const statusCls = 'status-' + (p.CaseStatus||'default');
+  const street = streetAddr(p);
+  const fullAddr = getAddr(p);
+  const data = 'data-status="' + esc(p.CaseStatus||'') + '" data-search="' + esc(((p.CaseNumber||'')+' '+fullAddr+' '+(p.CaseName||'')+' '+(p.SubTypeDesc||'')).toLowerCase()) + '"';
+  const displayAddr = street || '(no address)';
+  // Address only, as a link. No permit number, no CaseName, no SubTypeDesc.
+  const head =
+      '<div class="card-head">'
+    +   '<div style="font-size:' + (compact ? '14px' : '16px') + ';font-weight:600">'
+    +     '<a href="' + esc(permitUrl(p)) + '" target="_blank" rel="noopener" style="color:var(--text);text-decoration:none">' + esc(displayAddr) + '</a>'
+    +   '</div>'
+    +   '<span class="status-badge ' + statusCls + '">' + esc(p.CaseStatus||'') + '</span>'
+    + '</div>';
+  return '<article class="card ' + (compact?'card-compact':'') + '" ' + data + '>'
+    + head
+    + '<div class="progress">'
+    +   '<span>' + doneCount + '/' + tasks.length + ' tasks</span>'
+    +   '<div class="progress-bar"><div class="progress-fill" style="width:' + pct + '%"></div></div>'
+    +   '<span>' + pct + '%</span>'
+    + '</div>'
+    + workflowHtml(tasks)
+    + '</article>';
+}
+
+function batchCard(batchNum, addrs, permitsInBatch){
+  const totalTasks = permitsInBatch.reduce((a,b) => a + ((b.permit&&b.permit.Tasks)||[]).length, 0);
+  const doneTasks = permitsInBatch.reduce((a,b) => a + ((b.permit&&b.permit.Tasks)||[]).filter(t=>t.TaskCompleteFlag==='Y').length, 0);
+  const pct = totalTasks ? Math.round(doneTasks/totalTasks*100) : 0;
+  const matched = permitsInBatch.filter(x=>x.permit).length;
+  return '<section class="batch" data-batch-id="' + esc(batchNum) + '">'
+    + '<div class="batch-head"><div class="batch-title">'
+    +   '<div class="batch-num">' + batchNum + '</div>'
+    +   '<div><div class="batch-name">Batch ' + batchNum + '</div>'
+    +   '<div class="batch-stats">' + matched + '/' + addrs.length + ' permits matched · ' + doneTasks + '/' + totalTasks + ' tasks done (' + pct + '%)</div></div>'
+    + '</div></div>'
+    + '<div class="batch-progress"><div class="batch-progress-fill" style="width:' + pct + '%"></div></div>'
+    + '<div class="batch-body">'
+    +   (matched > 1
+        ? '<div class="batch-scrub-row">'
+          + '<label>Scroll timeline</label>'
+          + '<input class="batch-scrubber" type="range" min="0" max="1000" step="1" value="0" aria-label="Scroll all permit timelines in this batch" />'
+          + '<span class="batch-scrub-pos">start</span>'
+          + '</div>'
+        : '')
+    +   permitsInBatch.map(x => x.permit ? permitCard(x.permit, true) : '<div class="unassigned-addr">⚠ No permit found for: ' + esc(streetOnly(x.addr)) + '</div>').join('')
+    + '</div></section>';
+}
+
+function permitKeys(p){
+  // Every potential lookup key for this permit, across all sources & variants.
+  const keys = new Set();
+  const sources = [
+    p.Address, p.FormatedAddress, p.FormattedAddress, p.FullAddress,
+    p.SiteAddress, p.Location, p.CaseName, p.Description
+  ];
+  for (const src of sources){
+    for (const k of addrKeys(src)) keys.add(k);
+  }
+  return [...keys];
+}
+
+// Which addresses in each batch have passed each pipeline inspection.
+// Used for the batch overview at the top of the Batches tab.
+function batchInspectionStatus(){
+  const byAddr = {};
+  for (const p of allPermits()){
+    for (const k of permitKeys(p)){ if (!byAddr[k]) byAddr[k] = p; }
+  }
+  return BATCHES.map(([num, addrs]) => {
+    const permits = [];
+    for (const a of addrs){
+      for (const k of addrKeys(a)){
+        if (byAddr[k]){ permits.push({addr:a, permit:byAddr[k]}); break; }
+      }
+    }
+    // Build stages from the default pipeline (Setback → Paving) — these are
+    // the construction-milestone inspections the user actually compares across
+    // a batch. Each stage shows pass count + laggard list.
+    const stages = DEFAULT_CYCLE_STAGES.map(stage => {
+      const passed = [], pending = [];
+      for (const entry of permits){
+        const d = latestPassingDate(entry.permit, stage.code);
+        if (d) passed.push({...entry, date:d});
+        else pending.push(entry);
+      }
+      return {code:stage.code, label:stage.label, passed, pending};
+    });
+    // Find the latest stage where ALL permits have passed (consecutive from start).
+    let lastUniform = null;
+    for (const s of stages){
+      if (permits.length > 0 && s.passed.length === permits.length) lastUniform = s;
+      else break;
+    }
+    // Stages where some have passed but others haven't → laggards.
+    const laggingStages = stages.filter(s => s.passed.length > 0 && s.pending.length > 0);
+    return {batch:num, permits, stages, lastUniform, laggingStages};
+  });
+}
+
+function renderBatchOverview(){
+  const rows = batchInspectionStatus().filter(r => r.permits.length > 0);
+  if (!rows.length) return '';
+  const uniformCount = rows.filter(r => r.laggingStages.length === 0).length;
+  const laggingCount = rows.length - uniformCount;
+  const cards = rows.map(r => {
+    const n = r.permits.length;
+    const statusCls = r.laggingStages.length ? 'lag'
+                      : r.lastUniform ? 'uniform'
+                      : 'nostart';
+    const statusText = r.laggingStages.length ? (r.laggingStages.length + ' stage' + (r.laggingStages.length===1?'':'s') + ' lagging')
+                      : r.lastUniform ? 'All aligned'
+                      : 'Not started';
+    const subtitle = r.laggingStages.length === 0 && r.lastUniform
+      ? 'All ' + n + ' permits through: ' + esc(r.lastUniform.label)
+      : r.laggingStages.length === 0 && !r.lastUniform
+      ? 'No pipeline inspections passed yet'
+      : (r.lastUniform
+          ? 'All ' + n + ' through ' + esc(r.lastUniform.label) + ' · now diverging'
+          : 'Diverging from the start');
+    const strip = r.stages.map(s => {
+      const isPass = s.passed.length === n && n > 0;
+      const isLag = s.passed.length > 0 && s.pending.length > 0;
+      const cls = isPass ? 'pass' : isLag ? 'lag' : 'none';
+      const tip = s.label + ': ' + s.passed.length + ' of ' + n + ' passed'
+                + (isLag ? ' · lagging: ' + s.pending.map(e => streetOnly(e.addr)).join(', ') : '');
+      return '<div class="bo-tile ' + cls + '" title="' + esc(tip) + '">'
+        + '<div class="t-name">' + esc(s.label) + '</div>'
+        + '<div class="t-count">' + s.passed.length + '/' + n + '</div>'
+        + '</div>';
+    }).join('');
+    const laggers = r.laggingStages.map(s => {
+      const names = s.pending.map(e => streetOnly(e.addr)).join(', ');
+      return '<div><b>' + esc(s.label) + '</b> — '
+        + s.pending.length + ' of ' + n + ' behind: ' + esc(names)
+        + '</div>';
+    }).join('');
+    return '<div class="bo-card ' + statusCls + '">'
+      + '<div class="bo-hdr">'
+      +   '<div class="bo-num">' + esc(r.batch) + '</div>'
+      +   '<div style="flex:1"><div class="bo-title">Batch ' + esc(r.batch) + '</div>'
+      +     '<div class="batch-overview-sub">' + subtitle + '</div></div>'
+      +   '<span class="bo-status ' + statusCls + '">' + esc(statusText) + '</span>'
+      + '</div>'
+      + '<div class="bo-strip">' + strip + '</div>'
+      + (laggers ? '<div class="bo-laggers">' + laggers + '</div>' : '')
+      + '</div>';
+  }).join('');
+  return '<section class="batch-overview">'
+    + '<div class="ms-header" style="margin-bottom:4px;padding-bottom:6px">'
+    +   '<span class="ms-chip sched">Batch Status</span>'
+    +   '<h2>Progress across ' + rows.length + ' batches · ' + uniformCount + ' aligned · ' + laggingCount + ' have laggards</h2>'
+    +   '<span class="ms-count">each tile shows <span style="color:#10b981">passed</span> / <span style="color:#f59e0b">mixed</span> / <span style="color:var(--muted)">not started</span> — hover for addresses</span>'
+    + '</div>'
+    + '<div class="batch-overview-grid">' + cards + '</div>'
+    + '</section>';
+}
+
+function renderBatches(){
+  const main = document.getElementById('main');
+  // Multi-key index: any of a permit's possible keys -> that permit.
+  const byAddr = {};
+  const usedPermitIds = new Set();
+  for (const p of allPermits()) {
+    for (const k of permitKeys(p)){
+      if (!byAddr[k]) byAddr[k] = p;
+    }
+  }
+  const batchesHtml = BATCHES.map(([num, addrs]) => {
+    const permitsInBatch = addrs.map(a => {
+      // Try each variant key for this batch address
+      for (const k of addrKeys(a)){
+        if (byAddr[k]){
+          usedPermitIds.add(byAddr[k].CaObjectId);
+          return {addr:a, permit: byAddr[k]};
+        }
+      }
+      return {addr:a, permit: null};
+    });
+    return batchCard(num, addrs, permitsInBatch);
+  }).join('');
+  // Any permit not matched to a batch slot
+  const orphans = allPermits().filter(p => !usedPermitIds.has(p.CaObjectId));
+  const orphanHtml = orphans.length ? (
+    '<section class="batch" style="margin-top:14px">'
+    + '<div class="batch-head"><div class="batch-title"><div class="batch-num" style="background:var(--warn)">?</div>'
+    + '<div><div class="batch-name">Unassigned</div><div class="batch-stats">' + orphans.length + ' permits not in any batch</div></div></div></div>'
+    + '<div class="batch-body">' + orphans.map(p => permitCard(p, true)).join('') + '</div>'
+    + '</section>'
+  ) : '';
+  main.innerHTML = renderBatchOverview() + '<div class="batches">' + batchesHtml + '</div>' + orphanHtml;
+  applyFilter();
+  wireBatchScrubbers();
+}
+
+// One slider per batch scrolls every permit's workflow strip in unison.
+function wireBatchScrubbers(){
+  document.querySelectorAll('section.batch').forEach(sec => {
+    const scrub = sec.querySelector('.batch-scrubber');
+    if (!scrub) return;
+    const label = sec.querySelector('.batch-scrub-pos');
+    const workflows = sec.querySelectorAll('.batch-body .workflow');
+    if (!workflows.length) return;
+    const apply = () => {
+      const frac = (+scrub.value || 0) / 1000;
+      let maxMax = 0;
+      workflows.forEach(wf => {
+        const max = Math.max(0, wf.scrollWidth - wf.clientWidth);
+        wf.scrollLeft = max * frac;
+        if (max > maxMax) maxMax = max;
+      });
+      if (label){
+        if (maxMax <= 0) label.textContent = '—';
+        else if (frac <= 0.001) label.textContent = 'start';
+        else if (frac >= 0.999) label.textContent = 'end';
+        else label.textContent = Math.round(frac * 100) + '%';
+      }
+    };
+    scrub.addEventListener('input', apply);
+    // Run once so any initial non-zero value applies (e.g. after re-render)
+    requestAnimationFrame(apply);
+  });
+}
+
+function renderAll(){
+  const main = document.getElementById('main');
+  const ps = allPermits();
+  main.innerHTML = '<div class="grid">' + ps.map(p => permitCard(p, false)).join('') + '</div>';
+  applyFilter();
+}
+
+// ---------- Failed inspections ----------
+// Kept for backward-compat / count badge: just the list of failed task rows.
+function collectFailed(){
+  const out = [];
+  for (const p of allPermits()){
+    for (const t of (p.Tasks||[])){
+      if (!isInspection(t)) continue;
+      if (!isFail(t)) continue;
+      out.push({p, t});
+    }
+  }
+  return out;
+}
+
+// Failure history grouped by (permit, TaskCode): every sequence of attempts
+// for an inspection type that had at least one failure.
+function failureHistory(){
+  const out = [];
+  for (const p of allPermits()){
+    const byCode = new Map();
+    for (const t of (p.Tasks||[])){
+      if (!isInspection(t)) continue;
+      const c = t.TaskCode || '';
+      if (!c) continue;
+      if (!byCode.has(c)) byCode.set(c, []);
+      byCode.get(c).push(t);
+    }
+    for (const [code, tasks] of byCode){
+      if (!tasks.some(isFail)) continue;
+      const completed = tasks
+        .filter(t => getCompleteFlag(t) === 'Y' && getCompleteDate(t))
+        .sort((a,b) => new Date(getCompleteDate(a)) - new Date(getCompleteDate(b)));
+      const firstFail = completed.find(isFail);
+      const passedAfterFail = firstFail
+        ? completed.find(t => !isFail(t) && new Date(getCompleteDate(t)) > new Date(getCompleteDate(firstFail)))
+        : null;
+      const pending = tasks
+        .filter(t => getCompleteFlag(t) !== 'Y')
+        .sort((a,b) => new Date(getTargetDate(a)||0) - new Date(getTargetDate(b)||0));
+      const firstFailDate = firstFail ? new Date(getCompleteDate(firstFail)) : null;
+      const passDate = passedAfterFail ? new Date(getCompleteDate(passedAfterFail)) : null;
+      const daysToPass = (firstFailDate && passDate) ? (passDate - firstFailDate)/86400000 : null;
+      const daysOpen = (firstFailDate && !passDate) ? (Date.now() - firstFailDate)/86400000 : null;
+      const failCount = completed.filter(isFail).length;
+      out.push({
+        p, code,
+        taskDesc: getTaskDesc(firstFail || tasks[0]) || code,
+        attempts: completed,
+        pending,
+        passed: !!passDate,
+        firstFailDate, passDate,
+        daysToPass, daysOpen,
+        failCount,
+        milestone: msOf(firstFail || tasks[0])
+      });
+    }
+  }
+  // Still-open incidents first (oldest fail first), then resolved (longest cycle first)
+  out.sort((a,b) => {
+    if (a.passed !== b.passed) return a.passed ? 1 : -1;
+    if (!a.passed) return a.firstFailDate - b.firstFailDate;
+    return (b.daysToPass||0) - (a.daysToPass||0);
+  });
+  return out;
+}
+
+function groupByMilestone(rows){
+  const groups = new Map();
+  for (const r of rows){
+    const m = msOf(r.t); // numeric, consistent with workflow ordering
+    if (!groups.has(m)) groups.set(m, []);
+    groups.get(m).push(r);
+  }
+  return [...groups.keys()].sort((a,b)=>a-b).map(k => ({m:k, rows:groups.get(k)}));
+}
+
+// Group rows by batch number (via permitBatchMap); unassigned rows land in null bucket.
+function groupByBatch(rows){
+  const groups = new Map();
+  for (const r of rows){
+    const b = batchOfPermit(r.p);
+    const key = (b == null) ? null : b;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(r);
+  }
+  // Numeric batches in natural order, unassigned at the end
+  const keys = [...groups.keys()].sort((a,b) => {
+    if (a == null) return 1;
+    if (b == null) return -1;
+    const na = typeof a === 'number' ? a : parseInt(a,10);
+    const nb = typeof b === 'number' ? b : parseInt(b,10);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return String(a).localeCompare(String(b));
+  });
+  return keys.map(k => ({batch:k, rows:groups.get(k)}));
+}
+
+function renderFailureAttempt(t, idx){
+  const failed = isFail(t);
+  const rd = getResultDisplay(t);
+  const d = shortDate(getCompleteDate(t));
+  const notes = getComments(t).filter(c => c && c.text);
+  const notesHtml = notes.length
+    ? '<div class="attempt-notes">' + notes.map(c => (
+        '<div><span style="font-weight:600;color:#e2e8f0">' + esc(c.by||'—') + '</span> '
+        + '<span style="color:var(--muted);font-size:11px">' + esc(shortDateTime(c.date)) + '</span><br/>'
+        + esc(c.text) + '</div>'
+      )).join('') + '</div>'
+    : '';
+  const pillStyle = failed ? '' : 'background:#052e1a;color:#86efac;border-color:#166534';
+  const pillClass = failed ? 'pill danger' : 'pill';
+  const reins = t.IsReinspection==='Y' ? ' <span class="pill reins">Reinspection</span>' : '';
+  return '<div class="attempt ' + (failed?'fail':'pass') + '">'
+    + '<div class="attempt-hdr">'
+    +   '<span class="attempt-num">Attempt ' + (idx+1) + '</span>'
+    +   '<span class="' + pillClass + '" style="' + pillStyle + '">' + esc(rd || (failed?'FAIL':'PASS')) + '</span>'
+    +   reins
+    +   '<span class="attempt-date">' + (d||'—') + '</span>'
+    +   (inspector(t) ? '<span class="attempt-meta">Inspector: <b>' + esc(inspector(t)) + '</b></span>' : '')
+    + '</div>'
+    + notesHtml
+    + '</div>';
+}
+
+function renderPendingReinspection(t){
+  const target = getTargetDate(t);
+  const avail = t.TaskAvailableDate;
+  const dateLabel = target ? 'Target ' + shortDate(target)
+    : avail ? 'Available ' + shortDate(avail)
+    : 'Not yet scheduled';
+  return '<div class="attempt pending">'
+    + '<div class="attempt-hdr">'
+    +   '<span class="attempt-num">Next</span>'
+    +   '<span class="pill reins">Awaiting reinspection</span>'
+    +   '<span class="attempt-date">' + esc(dateLabel) + '</span>'
+    + '</div>'
+    + '</div>';
+}
+
+function renderFailedGroup(g){
+  const addr = streetAddr(g.p);
+  const attemptsHtml = g.attempts.map((t,i) => renderFailureAttempt(t,i)).join('');
+  // Only show "awaiting reinspection" if still open, i.e. not yet passed
+  const pendingHtml = !g.passed && g.pending.length ? renderPendingReinspection(g.pending[0]) : '';
+  const statusBanner = g.passed
+    ? '<span class="status-tag ok">Resolved · ' + g.daysToPass.toFixed(1) + ' days to pass</span>'
+    : '<span class="status-tag err">Open · ' + Math.round(g.daysOpen) + ' days since first fail</span>';
+  const batch = batchOfPermit(g.p);
+  const batchChip = batch != null
+    ? '<span class="pill" style="margin-left:6px">Batch ' + esc(batch) + '</span>'
+    : '';
+  const search = (getAddr(g.p) + ' ' + g.taskDesc + ' ' + g.attempts.map(t => inspector(t)).join(' ')).toLowerCase();
+  return '<div class="fail-group ' + (g.passed?'resolved':'') + '" data-search="' + esc(search) + '">'
+    + '<div class="fail-group-hdr">'
+    +   '<div style="flex:1 1 320px">'
+    +     '<div class="fail-task">' + esc(g.taskDesc) + batchChip + '</div>'
+    +     '<div class="fail-sub">'
+    +       '<a href="' + esc(permitUrl(g.p)) + '" target="_blank" rel="noopener">' + esc(addr||'—') + '</a>'
+    +       ' · ' + g.failCount + ' failure' + (g.failCount===1?'':'s')
+    +       (g.firstFailDate ? ' · first failed ' + shortDate(g.firstFailDate) : '')
+    +     '</div>'
+    +   '</div>'
+    +   '<div>' + statusBanner + '</div>'
+    + '</div>'
+    + '<div class="fail-group-body">'
+    +   attemptsHtml
+    +   pendingHtml
+    + '</div>'
+    + '</div>';
+}
+
+function renderFailed(){
+  const main = document.getElementById('main');
+  const groups = failureHistory();
+  if (!groups.length){
+    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No failed inspections</h2><p>Nothing currently marked as failed / rejected / denied / no-show.</p></div>';
+    return;
+  }
+  const open = groups.filter(g => !g.passed);
+  const resolved = groups.filter(g => g.passed);
+  const avgDaysToPass = resolved.length ? (resolved.reduce((s,g)=>s+(g.daysToPass||0),0)/resolved.length) : null;
+  const maxOpenDays = open.length ? Math.max(...open.map(g => g.daysOpen||0)) : 0;
+  const uniquePermits = new Set(groups.map(g => g.p.CaObjectId)).size;
+
+  const summary = '<div class="fail-summary">'
+    + '<div class="card-compact"><div class="lbl">Failure incidents</div><div class="val">' + groups.length + '</div></div>'
+    + '<div class="card-compact"><div class="lbl">Still open</div><div class="val" style="color:' + (open.length?'var(--err)':'var(--muted)') + '">' + open.length + '</div></div>'
+    + '<div class="card-compact"><div class="lbl">Avg days to pass</div><div class="val">' + (avgDaysToPass==null?'—':avgDaysToPass.toFixed(1)+'d') + '</div></div>'
+    + '<div class="card-compact"><div class="lbl">Permits affected</div><div class="val">' + uniquePermits + '</div></div>'
+    + '</div>';
+
+  // Group the list by batch so the user can see which batches carry which issues
+  const byBatch = groupByBatch(groups.map(g => ({p:g.p, _g:g})));
+  let body = '';
+  for (const bg of byBatch){
+    const title = (bg.batch == null) ? 'Unassigned (not in any batch)' : ('Batch ' + bg.batch);
+    const openInBatch = bg.rows.filter(r => !r._g.passed).length;
+    const chipClass = openInBatch ? 'fail' : 'sched';
+    body += '<section class="ms-section">'
+      + '<div class="ms-header"><span class="ms-chip ' + chipClass + '">' + esc(title) + '</span>'
+      +   '<h2>' + bg.rows.length + ' incident' + (bg.rows.length===1?'':'s') + '</h2>'
+      +   (openInBatch ? '<span class="ms-count" style="color:var(--err)">' + openInBatch + ' still open</span>' : '<span class="ms-count" style="color:var(--ok)">all resolved</span>')
+      + '</div>'
+      + bg.rows.map(r => renderFailedGroup(r._g)).join('')
+      + '</section>';
+  }
+
+  // Extra context footer for oldest open incident (if any)
+  const footer = open.length
+    ? '<div style="color:var(--muted);font-size:12px;margin-top:8px">Oldest open incident: ' + Math.round(maxOpenDays) + ' days since first fail.</div>'
+    : '';
+
+  main.innerHTML = summary + body + footer;
+  applyFilter();
+}
+
+// ---------- Scheduled inspections (upcoming with a target date) ----------
+function collectScheduled(){
+  const scheduled = [];
+  const today = new Date(); today.setHours(0,0,0,0);
+  for (const p of allPermits()){
+    for (const t of (p.Tasks||[])){
+      if (!isInspection(t)) continue;
+      if (getCompleteFlag(t) === 'Y') continue;
+      const ts = getTargetDate(t);
+      if (!ts) continue;
+      const tsd = new Date(ts);
+      if (tsd >= today) scheduled.push({p, t, when: tsd});
+    }
+  }
+  scheduled.sort((a,b) => a.when - b.when);
+  return scheduled;
+}
+
+// ---------- Inspections that happened this week (Sun → Sat, completed) ----------
+function weekBounds(){
+  const now = new Date();
+  const start = new Date(now); start.setHours(0,0,0,0);
+  start.setDate(start.getDate() - start.getDay()); // rewind to Sunday
+  const end = new Date(start); end.setDate(end.getDate()+7); // next Sunday (exclusive)
+  return {start, end};
+}
+
+function collectThisWeek(){
+  const {start, end} = weekBounds();
+  const out = [];
+  for (const p of allPermits()){
+    for (const t of (p.Tasks||[])){
+      if (!isInspection(t)) continue;
+      if (getCompleteFlag(t) !== 'Y') continue;
+      const d = getCompleteDate(t);
+      if (!d) continue;
+      const dt = new Date(d);
+      if (dt >= start && dt < end) out.push({p, t, when: dt});
+    }
+  }
+  // Most recent first
+  out.sort((a,b) => b.when - a.when);
+  return out;
+}
+
+function renderScheduledRow({p,t,when}, kind){
+  const dateText = when ? shortDate(when) : (t.TaskAvailableDate ? 'Avail ' + shortDate(t.TaskAvailableDate) : 'Ready');
+  const taskDesc = getTaskDesc(t);
+  const addr = streetAddr(p);
+  const fullAddr = getAddr(p);
+  const ms = msOf(t);
+  const search = (fullAddr+' '+taskDesc+' '+inspector(t)).toLowerCase();
+  return '<div class="insp-row ' + kind + '" data-search="' + esc(search) + '">'
+    + '<div>'
+    +   '<div class="insp-top">'
+    +     '<span class="insp-task">' + esc(taskDesc) + '</span>'
+    +     (t.IsReinspection==='Y' ? ' <span class="pill reins">Reinspection</span>' : '')
+    +   '</div>'
+    +   '<div class="insp-meta">'
+    +     '<a class="insp-addr" href="' + esc(permitUrl(p)) + '" target="_blank" rel="noopener" style="color:var(--accent2);text-decoration:none">' + esc(addr||'—') + '</a>'
+    +     (inspector(t) ? '<span>Inspector: <b>' + esc(inspector(t)) + '</b></span>' : '')
+    +   '</div>'
+    + '</div>'
+    + '<div class="insp-right"><div class="when">' + dateText + '</div><div>Milestone ' + (ms===999?'—':ms) + '</div></div>'
+    + '</div>';
+}
+
+function renderScheduled(){
+  const main = document.getElementById('main');
+  const scheduled = collectScheduled();
+  if (!scheduled.length){
+    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No upcoming inspections</h2><p>Nothing scheduled right now.</p></div>';
+    return;
+  }
+  let html = '<section class="ms-section"><div class="ms-header"><span class="ms-chip sched">Scheduled</span><h2>' + scheduled.length + ' upcoming inspection' + (scheduled.length===1?'':'s') + '</h2><span class="ms-count">(grouped by batch · soonest first)</span></div>';
+  const groups = groupByBatch(scheduled);
+  for (const g of groups){
+    const title = (g.batch == null) ? 'Unassigned (not in any batch)' : ('Batch ' + g.batch);
+    const headerClass = (g.batch == null) ? 'ready' : 'sched';
+    g.rows.sort((a,b) => a.when - b.when);
+    html += '<div style="margin:10px 0 18px">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px"><span class="ms-chip ' + headerClass + '">' + esc(title) + '</span>'
+      +   '<span style="color:var(--muted);font-size:12px">' + g.rows.length + ' inspection' + (g.rows.length===1?'':'s') + ' · next ' + shortDate(g.rows[0].when) + '</span></div>'
+      + '<div class="insp-list">' + g.rows.map(r => renderScheduledRow(r, 'sched')).join('') + '</div>'
+      + '</div>';
+  }
+  html += '</section>';
+  main.innerHTML = html;
+  applyFilter();
+}
+
+// ---------- Render This Week ----------
+function renderThisWeekRow({p,t,when}){
+  const taskDesc = getTaskDesc(t);
+  const addr = streetAddr(p);
+  const fullAddr = getAddr(p);
+  const ms = msOf(t);
+  const cls = statusClass(t);
+  // cls is 'done' for pass, 'rejected' for fail
+  const passed = cls === 'done';
+  const rd = getResultDisplay(t);
+  const pillClass = passed ? 'pill' : 'pill danger';
+  const pillText = rd || (passed ? 'PASS' : 'FAIL');
+  const rowKind = passed ? 'sched' : 'fail';
+  const notes = getComments(t).filter(c => c && c.text);
+  const notesHtml = (!passed && notes.length)
+    ? '<div class="insp-notes">' + notes.map(c => (
+        '<div class="insp-note"><span class="who">' + esc(c.by||'—') + '</span>'
+        + '<span class="on">' + esc(shortDateTime(c.date)) + '</span><br/>'
+        + esc(c.text) + '</div>'
+      )).join('') + '</div>'
+    : '';
+  const search = (fullAddr+' '+taskDesc+' '+inspector(t)+' '+rd).toLowerCase();
+  return '<div class="insp-row ' + rowKind + '" data-search="' + esc(search) + '">'
+    + '<div>'
+    +   '<div class="insp-top">'
+    +     '<span class="insp-task">' + esc(taskDesc) + '</span>'
+    +     '<span class="' + pillClass + '" style="' + (passed?'background:#052e1a;color:#86efac;border-color:#166534':'')  + '">' + esc(pillText) + '</span>'
+    +     (t.IsReinspection==='Y' ? ' <span class="pill reins">Reinspection</span>' : '')
+    +   '</div>'
+    +   '<div class="insp-meta">'
+    +     '<a class="insp-addr" href="' + esc(permitUrl(p)) + '" target="_blank" rel="noopener" style="color:var(--accent2);text-decoration:none">' + esc(addr||'—') + '</a>'
+    +     (inspector(t) ? '<span>Inspector: <b>' + esc(inspector(t)) + '</b></span>' : '')
+    +   '</div>'
+    + '</div>'
+    + '<div class="insp-right"><div class="when">' + shortDate(when) + '</div><div>Milestone ' + (ms===999?'—':ms) + '</div></div>'
+    + notesHtml
+    + '</div>';
+}
+
+function renderThisWeek(){
+  const main = document.getElementById('main');
+  const rows = collectThisWeek();
+  const {start, end} = weekBounds();
+  const endLabel = new Date(end); endLabel.setDate(endLabel.getDate()-1);
+  const range = shortDate(start) + ' – ' + shortDate(endLabel);
+  if (!rows.length){
+    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No inspections this week</h2><p>Nothing completed between ' + esc(range) + '.</p></div>';
+    return;
+  }
+  const passed = rows.filter(r => statusClass(r.t) === 'done').length;
+  const failed = rows.length - passed;
+  let html = '<section class="ms-section"><div class="ms-header"><span class="ms-chip sched">This Week</span>'
+    + '<h2>' + rows.length + ' inspection' + (rows.length===1?'':'s') + ' completed</h2>'
+    + '<span class="ms-count">(' + range + ' · ' + passed + ' pass / ' + failed + ' fail · grouped by batch)</span></div>';
+  const groups = groupByBatch(rows);
+  for (const g of groups){
+    const title = (g.batch == null) ? 'Unassigned (not in any batch)' : ('Batch ' + g.batch);
+    const passCnt = g.rows.filter(r => statusClass(r.t) === 'done').length;
+    const failCnt = g.rows.length - passCnt;
+    const headerClass = (g.batch == null) ? 'ready' : 'sched';
+    g.rows.sort((a,b) => b.when - a.when);
+    html += '<div style="margin:10px 0 18px">'
+      + '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px"><span class="ms-chip ' + headerClass + '">' + esc(title) + '</span>'
+      +   '<span style="color:var(--muted);font-size:12px">' + g.rows.length + ' inspection' + (g.rows.length===1?'':'s')
+      +   (passCnt?' · <span style="color:var(--ok)">'+passCnt+' pass</span>':'')
+      +   (failCnt?' · <span style="color:var(--err)">'+failCnt+' fail</span>':'')
+      + '</span></div>'
+      + '<div class="insp-list">' + g.rows.map(renderThisWeekRow).join('') + '</div>'
+      + '</div>';
+  }
+  html += '</section>';
+  main.innerHTML = html;
+  applyFilter();
+}
+
+// ---------- Cycle Times ----------
+// Latest passing completion date for a given TaskCode within a permit.
+function latestPassingDate(permit, code){
+  let best = null;
+  for (const t of (permit.Tasks||[])){
+    if (t.TaskCode !== code) continue;
+    if (getCompleteFlag(t) !== 'Y') continue;
+    if (isFail(t)) continue;
+    const d = getCompleteDate(t);
+    if (!d) continue;
+    const dt = new Date(d);
+    if (!best || dt > best) best = dt;
+  }
+  return best;
+}
+
+// Discover all inspection task codes present in the data, with counts.
+function discoverInspectionCodes(){
+  const byCode = new Map();
+  for (const p of allPermits()){
+    for (const t of (p.Tasks||[])){
+      if (!isInspection(t)) continue;
+      const code = t.TaskCode || '';
+      if (!code) continue;
+      if (!byCode.has(code)) byCode.set(code, {code, desc:getTaskDesc(t), count:0});
+      byCode.get(code).count++;
+    }
+  }
+  return [...byCode.values()].sort((a,b) => a.desc.localeCompare(b.desc));
+}
+
+// Discover ALL task codes present in the data (inspections, reviews, intake,
+// fee assessments, etc.), with PER-PERMIT counts — each permit contributes at
+// most 1 to the total and 1 to the passed count, so the numbers match the
+// number of permits in the dataset (not the raw number of task rows, which
+// inflates due to reinspection attempts).
+// Sorted by average completion date (earliest → latest) — the typical order
+// events actually occur in the workflow.
+function discoverAllTaskCodes(){
+  const byCode = new Map();
+  function ensure(code, sampleT){
+    if (!byCode.has(code)) byCode.set(code, {
+      code,
+      desc: getTaskDesc(sampleT) || code,
+      type: getTaskTypeRaw(sampleT) || (isInspection(sampleT) ? 'INSPECTION' : ''),
+      isInsp: isInspection(sampleT),
+      count: 0,        // permits where this code exists at all
+      completed: 0,    // permits where this code was passed at least once
+      _dateSum: 0, _dateN: 0,
+      _msSum: 0, _msN: 0
+    });
+    return byCode.get(code);
+  }
+  for (const p of allPermits()){
+    // Per-permit collapse: pick the best sample task per code + track pass
+    const sampleByCode = new Map();
+    const passedCodes = new Set();
+    for (const t of (p.Tasks||[])){
+      const code = t.TaskCode || '';
+      if (!code) continue;
+      const prev = sampleByCode.get(code);
+      if (!prev || getTaskDesc(t).length > getTaskDesc(prev).length) sampleByCode.set(code, t);
+      if (getCompleteFlag(t) === 'Y' && !isFail(t)) passedCodes.add(code);
+    }
+    for (const [code, sampleT] of sampleByCode){
+      const rec = ensure(code, sampleT);
+      rec.count++;
+      const d = getTaskDesc(sampleT);
+      if (d && d.length > rec.desc.length) rec.desc = d;
+      const m = msOf(sampleT);
+      if (typeof m === 'number' && m !== 999){ rec._msSum += m; rec._msN++; }
+      if (passedCodes.has(code)){
+        rec.completed++;
+        // Only count the permit's latest passing date (same one cycleStats uses)
+        const lpd = latestPassingDate(p, code);
+        if (lpd){
+          const dt = lpd.getTime();
+          if (isFinite(dt)){ rec._dateSum += dt; rec._dateN++; }
+        }
+      }
+    }
+  }
+  for (const rec of byCode.values()){
+    rec.avgCompleteMs = rec._dateN ? rec._dateSum / rec._dateN : Infinity;
+    rec.avgMs = rec._msN ? rec._msSum / rec._msN : Infinity;
+  }
+  // Sort: earliest-completed-on-average first; never-completed codes go last
+  // (using avg milestone as tie-break, then description)
+  return [...byCode.values()].sort((a,b) => {
+    if (a.avgCompleteMs !== b.avgCompleteMs) return a.avgCompleteMs - b.avgCompleteMs;
+    if (a.avgMs !== b.avgMs) return a.avgMs - b.avgMs;
+    return a.desc.localeCompare(b.desc);
+  });
+}
+
+function cycleStats(fromCode, toCode, minDays){
+  const rows = [];
+  let excludedShort = 0;
+  const threshold = (typeof minDays === 'number' && minDays > 0) ? minDays : 0;
+  for (const p of allPermits()){
+    const a = latestPassingDate(p, fromCode);
+    const b = latestPassingDate(p, toCode);
+    if (!a || !b) continue;
+    const days = (b - a)/86400000;
+    if (days < 0) continue; // toCode happened before fromCode — skip
+    if (threshold > 0 && days < threshold){ excludedShort++; continue; }
+    rows.push({p, a, b, days});
+  }
+  rows.sort((x,y) => x.days - y.days);
+  const days = rows.map(r => r.days);
+  if (!days.length) return {rows, n:0, excludedShort, threshold};
+  const mean = days.reduce((s,v)=>s+v,0) / days.length;
+  const sortedD = [...days].sort((a,b)=>a-b);
+  const median = sortedD.length%2 ? sortedD[(sortedD.length-1)/2] : (sortedD[sortedD.length/2-1]+sortedD[sortedD.length/2])/2;
+  return {rows, n:days.length, mean, median, min:Math.min(...days), max:Math.max(...days), excludedShort, threshold};
+}
+
+// Default pipeline (your build sequence)
+const DEFAULT_CYCLE_STAGES = [
+  {code:'BPB-SETBAC', label:'Setback'},
+  {code:'BPB-FOUNDA', label:'Foundation'},
+  {code:'BPB-FRAMIN', label:'Framing'},
+  {code:'BPB-INSULA', label:'Insulation'},
+  {code:'BPEN-PAVIN', label:'Paving'},
+];
+
+// Persist custom selection across renders
+let CYCLE_FROM = 'BPB-SETBAC';
+let CYCLE_TO   = 'BPEN-PAVIN';
+let CYCLE_MIN_DAYS = 1; // default: drop same-day pairs (likely data-entry errors)
+
+function renderCycleTimes(){
+  const main = document.getElementById('main');
+  if (!DATA){ main.innerHTML = '<div class="empty"><p>Load data first.</p></div>'; return; }
+
+  const codes = discoverInspectionCodes();
+  const allCodes = discoverAllTaskCodes();
+  if (!allCodes.length){
+    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No tasks found</h2></div>';
+    return;
+  }
+
+  // 1. Default pipeline: consecutive-pair stats
+  const pairStats = [];
+  for (let i=0; i<DEFAULT_CYCLE_STAGES.length-1; i++){
+    const a = DEFAULT_CYCLE_STAGES[i], b = DEFAULT_CYCLE_STAGES[i+1];
+    pairStats.push({a, b, stats: cycleStats(a.code, b.code)});
+  }
+
+  const fmtD = v => (v==null || !isFinite(v)) ? '—' : v.toFixed(1) + 'd';
+  const defaultTable =
+      '<table style="width:100%;border-collapse:collapse;margin-top:10px">'
+    + '<thead><tr style="text-align:left;color:var(--muted);border-bottom:1px solid var(--border)">'
+    +   '<th style="padding:8px 10px">Transition</th>'
+    +   '<th style="padding:8px 10px;text-align:right">n</th>'
+    +   '<th style="padding:8px 10px;text-align:right">Average</th>'
+    +   '<th style="padding:8px 10px;text-align:right">Median</th>'
+    +   '<th style="padding:8px 10px;text-align:right">Min</th>'
+    +   '<th style="padding:8px 10px;text-align:right">Max</th>'
+    + '</tr></thead><tbody>'
+    + pairStats.map(({a,b,stats}) => (
+        '<tr style="border-bottom:1px solid var(--border)">'
+        + '<td style="padding:8px 10px"><b>' + esc(a.label) + '</b> → <b>' + esc(b.label) + '</b></td>'
+        + '<td style="padding:8px 10px;text-align:right">' + stats.n + '</td>'
+        + '<td style="padding:8px 10px;text-align:right;color:var(--accent2);font-weight:600">' + fmtD(stats.mean) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right">' + fmtD(stats.median) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right;color:var(--muted)">' + fmtD(stats.min) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right;color:var(--muted)">' + fmtD(stats.max) + '</td>'
+        + '</tr>'
+      )).join('')
+    + '</tbody></table>';
+
+  // 2. Custom pair picker — ANY two task events
+  // Group by type so inspections vs reviews/intake/fees are easy to tell apart
+  const groups = new Map();
+  for (const c of allCodes){
+    const label = c.isInsp ? 'Inspections'
+                  : c.type && c.type !== 'INSPECTION' ? (c.type.charAt(0) + c.type.slice(1).toLowerCase()).replace(/_/g,' ')
+                  : 'Other';
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(c);
+  }
+  const groupOrder = ['Inspections', ...[...groups.keys()].filter(k => k !== 'Inspections').sort()];
+  const opts = groupOrder.filter(k => groups.has(k)).map(k => {
+    const inner = groups.get(k).map(c =>
+      '<option value="' + esc(c.code) + '">' + esc(c.desc) + ' (' + c.completed + '/' + c.count + ')</option>'
+    ).join('');
+    return '<optgroup label="' + esc(k) + '">' + inner + '</optgroup>';
+  }).join('');
+
+  // Ensure the persisted selection still exists in the (broader) option set.
+  const codeSet = new Set(allCodes.map(c => c.code));
+  if (!codeSet.has(CYCLE_FROM)) CYCLE_FROM = allCodes[0].code;
+  if (!codeSet.has(CYCLE_TO))   CYCLE_TO   = allCodes[allCodes.length-1].code;
+
+  const customStats = cycleStats(CYCLE_FROM, CYCLE_TO, CYCLE_MIN_DAYS);
+
+  // Trend analysis for custom pair: linear regression + first/second half comparison
+  function trendAnalysis(rows){
+    if (!rows || rows.length < 2) return null;
+    const sorted = [...rows].sort((x,y) => x.a - y.a);
+    const xs = sorted.map(r => r.a.getTime() / 86400000); // days since epoch
+    const ys = sorted.map(r => r.days);
+    const n = xs.length;
+    const mx = xs.reduce((s,v)=>s+v,0)/n;
+    const my = ys.reduce((s,v)=>s+v,0)/n;
+    let num=0, ssx=0, ssy=0;
+    for (let i=0;i<n;i++){
+      const dx=xs[i]-mx, dy=ys[i]-my;
+      num += dx*dy; ssx += dx*dx; ssy += dy*dy;
+    }
+    const slope = ssx ? num/ssx : 0;            // cycle-days gained/lost per calendar day
+    const intercept = my - slope*mx;
+    const r = (ssx && ssy) ? num/Math.sqrt(ssx*ssy) : 0;
+    const half = Math.max(1, Math.floor(n/2));
+    const firstAvg  = sorted.slice(0, half).reduce((s,v)=>s+v.days,0)/half;
+    const secondAvg = sorted.slice(n-half).reduce((s,v)=>s+v.days,0)/half;
+    const delta = secondAvg - firstAvg;
+    const pct = firstAvg ? (delta/firstAvg*100) : 0;
+    return {sorted, xs, ys, slope, intercept, r, firstAvg, secondAvg, delta, pct, half, n};
+  }
+
+  function trendChart(trend){
+    if (!trend) return '<div style="color:var(--muted);padding:20px;text-align:center">Need at least 2 paired observations to show a trend.</div>';
+    const W = 760, H = 240, padL = 48, padR = 18, padT = 20, padB = 38;
+    const innerW = W - padL - padR, innerH = H - padT - padB;
+    const xMin = Math.min(...trend.xs), xMax = Math.max(...trend.xs);
+    const yMaxRaw = Math.max(...trend.ys);
+    const yMax = yMaxRaw > 0 ? yMaxRaw * 1.1 : 1;
+    const xRange = Math.max(1, xMax - xMin);
+    const xScale = v => padL + (v - xMin) / xRange * innerW;
+    const yScale = v => padT + (1 - v / yMax) * innerH;
+
+    // Gridlines + y-axis labels
+    let axes = '';
+    const yTicks = 5;
+    for (let i=0;i<=yTicks;i++){
+      const v = yMax * i / yTicks;
+      const y = yScale(v);
+      axes += '<line x1="'+padL+'" y1="'+y.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y.toFixed(1)+'" stroke="#1e293b" stroke-width="0.5" />';
+      axes += '<text x="'+(padL-6)+'" y="'+(y+3).toFixed(1)+'" text-anchor="end" font-size="10" fill="#64748b">'+v.toFixed(0)+'d</text>';
+    }
+    // X-axis tick labels (calendar dates)
+    const xTicks = 5;
+    for (let i=0;i<=xTicks;i++){
+      const xv = xMin + (xMax-xMin)*i/xTicks;
+      const x = xScale(xv);
+      const d = new Date(xv*86400000);
+      const lbl = (d.getMonth()+1)+'/'+d.getDate()+'/'+String(d.getFullYear()).slice(-2);
+      axes += '<line x1="'+x.toFixed(1)+'" y1="'+(H-padB)+'" x2="'+x.toFixed(1)+'" y2="'+(H-padB+4)+'" stroke="#64748b" />';
+      axes += '<text x="'+x.toFixed(1)+'" y="'+(H-padB+16)+'" text-anchor="middle" font-size="10" fill="#64748b">'+lbl+'</text>';
+    }
+    // Trend line (clamp y to visible range so it doesn't extend off the SVG)
+    const y1raw = trend.intercept + trend.slope * xMin;
+    const y2raw = trend.intercept + trend.slope * xMax;
+    const y1 = Math.max(0, Math.min(yMax, y1raw));
+    const y2 = Math.max(0, Math.min(yMax, y2raw));
+    const trendColor = trend.slope < 0 ? '#10b981' : trend.slope > 0 ? '#f59e0b' : '#64748b';
+    const line = '<line x1="'+xScale(xMin).toFixed(1)+'" y1="'+yScale(y1).toFixed(1)+'" x2="'+xScale(xMax).toFixed(1)+'" y2="'+yScale(y2).toFixed(1)+'" stroke="'+trendColor+'" stroke-width="2.5" stroke-dasharray="6,4" />';
+    // Points
+    const pts = trend.sorted.map((r,i) => {
+      const cx = xScale(trend.xs[i]).toFixed(1);
+      const cy = yScale(trend.ys[i]).toFixed(1);
+      const title = esc((streetAddr(r.p) || '?') + ': ' + r.days.toFixed(1) + 'd (from ' + shortDate(r.a) + ' to ' + shortDate(r.b) + ')');
+      return '<circle cx="'+cx+'" cy="'+cy+'" r="3.5" fill="#60a5fa" opacity="0.85"><title>'+title+'</title></circle>';
+    }).join('');
+
+    return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;background:#020617;border:1px solid var(--border);border-radius:6px;display:block">'
+      + axes + line + pts + '</svg>';
+  }
+
+  // Histogram for custom pair
+  function histogram(rows){
+    if (!rows.length) return '<div style="color:var(--muted);padding:20px;text-align:center">No paired observations in the data.</div>';
+    const maxDays = Math.max(...rows.map(r => r.days));
+    const minDays = Math.min(...rows.map(r => r.days));
+    const bins = 10;
+    const width = Math.max(1, maxDays - minDays);
+    const binSize = width / bins || 1;
+    const counts = new Array(bins).fill(0);
+    for (const r of rows){
+      let b = Math.floor((r.days - minDays) / binSize);
+      if (b >= bins) b = bins - 1;
+      if (b < 0) b = 0;
+      counts[b]++;
+    }
+    const maxCount = Math.max(...counts);
+    let h = '<div style="display:flex;align-items:flex-end;gap:3px;height:90px;padding:8px 4px;background:#020617;border:1px solid var(--border);border-radius:6px">';
+    for (let i=0; i<bins; i++){
+      const pct = counts[i] / maxCount * 100;
+      const lo = (minDays + i*binSize).toFixed(0);
+      const hi = (minDays + (i+1)*binSize).toFixed(0);
+      h += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px" title="' + lo + '–' + hi + 'd: ' + counts[i] + ' permits">'
+         + '<div style="width:100%;background:var(--accent);height:' + pct + '%;min-height:' + (counts[i]?2:0) + 'px;border-radius:2px 2px 0 0"></div>'
+         + '<div style="font-size:9px;color:var(--muted)">' + lo + '</div>'
+         + '</div>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  const customTable = !customStats.n
+    ? '<div style="color:var(--muted);padding:20px;text-align:center">No permits have passing completions for both selected stages.</div>'
+    : '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:14px 0">'
+      + '<div class="card-compact" style="text-align:center"><div style="color:var(--muted);font-size:11px">n</div><div style="font-size:20px;font-weight:700">' + customStats.n + '</div></div>'
+      + '<div class="card-compact" style="text-align:center"><div style="color:var(--muted);font-size:11px">Average</div><div style="font-size:20px;font-weight:700;color:var(--accent2)">' + fmtD(customStats.mean) + '</div></div>'
+      + '<div class="card-compact" style="text-align:center"><div style="color:var(--muted);font-size:11px">Median</div><div style="font-size:20px;font-weight:700">' + fmtD(customStats.median) + '</div></div>'
+      + '<div class="card-compact" style="text-align:center"><div style="color:var(--muted);font-size:11px">Min</div><div style="font-size:20px;font-weight:700;color:var(--ok)">' + fmtD(customStats.min) + '</div></div>'
+      + '<div class="card-compact" style="text-align:center"><div style="color:var(--muted);font-size:11px">Max</div><div style="font-size:20px;font-weight:700;color:var(--warn)">' + fmtD(customStats.max) + '</div></div>'
+      + '</div>'
+      + histogram(customStats.rows);
+
+  // Trend over time (scatter + regression line)
+  const trend = trendAnalysis(customStats.rows);
+  const trendBlock = !trend
+    ? ''
+    : (function(){
+        const slopePerMonth = trend.slope * 30.44;
+        const slopeColor = slopePerMonth < -0.01 ? 'var(--ok)' : slopePerMonth > 0.01 ? 'var(--warn)' : 'var(--muted)';
+        const deltaColor = trend.delta < 0 ? 'var(--ok)' : trend.delta > 0 ? 'var(--warn)' : 'var(--muted)';
+        const sign = v => (v >= 0 ? '+' : '');
+        const interpretation = Math.abs(slopePerMonth) < 0.05
+          ? 'Cycle time is essentially flat over the observed window.'
+          : (slopePerMonth < 0
+              ? 'Cycle time is <b style="color:var(--ok)">shrinking</b> by ~' + Math.abs(slopePerMonth).toFixed(2) + ' days for every additional month that passes.'
+              : 'Cycle time is <b style="color:var(--warn)">growing</b> by ~' + slopePerMonth.toFixed(2) + ' days for every additional month that passes.');
+        return '<div style="margin-top:22px;padding-top:14px;border-top:1px solid var(--border)">'
+          + '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px">'
+          +   '<h3 style="margin:0;font-size:15px">Trend over time</h3>'
+          +   '<span style="color:var(--muted);font-size:12px">each dot is one permit, positioned by its "from" event date</span>'
+          + '</div>'
+          + '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">'
+          +   '<div class="card-compact" style="text-align:center"><div style="color:var(--muted);font-size:11px">Trend slope</div><div style="font-size:18px;font-weight:700;color:'+slopeColor+'">'+sign(slopePerMonth)+slopePerMonth.toFixed(2)+' d / month</div></div>'
+          +   '<div class="card-compact" style="text-align:center"><div style="color:var(--muted);font-size:11px">Correlation (r)</div><div style="font-size:18px;font-weight:700">'+trend.r.toFixed(2)+'</div></div>'
+          +   '<div class="card-compact" style="text-align:center"><div style="color:var(--muted);font-size:11px">First '+trend.half+' avg</div><div style="font-size:18px;font-weight:700">'+trend.firstAvg.toFixed(1)+'d</div></div>'
+          +   '<div class="card-compact" style="text-align:center"><div style="color:var(--muted);font-size:11px">Last '+trend.half+' avg</div><div style="font-size:18px;font-weight:700">'+trend.secondAvg.toFixed(1)+'d <span style="font-size:12px;color:'+deltaColor+'">('+sign(trend.delta)+trend.delta.toFixed(1)+'d, '+sign(trend.pct)+trend.pct.toFixed(0)+'%)</span></div></div>'
+          + '</div>'
+          + trendChart(trend)
+          + '<div style="margin-top:8px;color:var(--muted);font-size:12.5px">' + interpretation + ' Correlation strength: <b>'+(Math.abs(trend.r)<0.2?'weak':Math.abs(trend.r)<0.5?'moderate':'strong')+'</b> (r='+trend.r.toFixed(2)+').</div>'
+          + '</div>';
+      })();
+
+  // Per-permit breakdown of the custom pair (sorted slowest-first)
+  const perPermit = customStats.n
+    ? '<details style="margin-top:14px"><summary style="cursor:pointer;color:var(--muted);padding:6px 0">Per-permit breakdown (' + customStats.n + ' permits, slowest first)</summary>'
+      + '<table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:12.5px">'
+      + '<thead><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border)">'
+      +   '<th style="padding:6px 8px">Address</th>'
+      +   '<th style="padding:6px 8px">From date</th><th style="padding:6px 8px">To date</th>'
+      +   '<th style="padding:6px 8px;text-align:right">Days</th></tr></thead>'
+      + '<tbody>'
+      + [...customStats.rows].sort((a,b) => b.days - a.days).map(r => (
+          '<tr style="border-bottom:1px solid var(--border)">'
+          + '<td style="padding:6px 8px"><a href="' + esc(permitUrl(r.p)) + '" target="_blank" rel="noopener" style="color:var(--accent2);text-decoration:none">' + esc(streetAddr(r.p) || '—') + '</a></td>'
+          + '<td style="padding:6px 8px;color:var(--muted)">' + shortDate(r.a) + '</td>'
+          + '<td style="padding:6px 8px;color:var(--muted)">' + shortDate(r.b) + '</td>'
+          + '<td style="padding:6px 8px;text-align:right;font-weight:600">' + r.days.toFixed(1) + '</td>'
+          + '</tr>'
+        )).join('')
+      + '</tbody></table></details>'
+    : '';
+
+  main.innerHTML =
+      '<section class="ms-section">'
+    +   '<div class="ms-header"><span class="ms-chip sched">Build Pipeline</span><h2>Consecutive stage averages</h2><span class="ms-count">(using latest passing inspection date per permit)</span></div>'
+    +   defaultTable
+    + '</section>'
+    + '<section class="ms-section">'
+    +   '<div class="ms-header"><span class="ms-chip">Custom Pair</span><h2>Any two events</h2><span class="ms-count">(intake, reviews, fee assessment, inspections — any task with a completion date)</span></div>'
+    +   '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:10px 0">'
+    +     '<label style="color:var(--muted);font-size:13px">From</label>'
+    +     '<select id="cycle-from" style="background:var(--panel);color:var(--text);border:1px solid var(--border);padding:7px 10px;border-radius:6px;min-width:240px">' + opts + '</select>'
+    +     '<span style="color:var(--muted)">→</span>'
+    +     '<label style="color:var(--muted);font-size:13px">To</label>'
+    +     '<select id="cycle-to" style="background:var(--panel);color:var(--text);border:1px solid var(--border);padding:7px 10px;border-radius:6px;min-width:240px">' + opts + '</select>'
+    +     '<span style="width:1px;height:22px;background:var(--border);margin:0 6px"></span>'
+    +     '<label style="color:var(--muted);font-size:13px" title="Omit pairs with fewer than this many days between events — e.g. same-day passes that are almost certainly data-entry errors">Min gap (days)</label>'
+    +     '<input id="cycle-min" type="number" min="0" step="0.1" value="' + CYCLE_MIN_DAYS + '" style="background:var(--panel);color:var(--text);border:1px solid var(--border);padding:7px 8px;border-radius:6px;width:80px" />'
+    +     (customStats.excludedShort ? '<span style="color:var(--warn);font-size:12px">'+ customStats.excludedShort +' pair' + (customStats.excludedShort===1?'':'s') + ' excluded (below threshold)</span>' : (CYCLE_MIN_DAYS>0 ? '<span style="color:var(--muted);font-size:12px">no pairs below threshold</span>' : ''))
+    +   '</div>'
+    +   customTable
+    +   trendBlock
+    +   perPermit
+    + '</section>';
+
+  // set current values + wire up
+  const selFrom = document.getElementById('cycle-from');
+  const selTo   = document.getElementById('cycle-to');
+  selFrom.value = CYCLE_FROM;
+  selTo.value   = CYCLE_TO;
+  selFrom.onchange = () => { CYCLE_FROM = selFrom.value; renderCycleTimes(); };
+  selTo.onchange   = () => { CYCLE_TO   = selTo.value;   renderCycleTimes(); };
+  const selMin = document.getElementById('cycle-min');
+  if (selMin){
+    const apply = () => {
+      const v = parseFloat(selMin.value);
+      CYCLE_MIN_DAYS = (isFinite(v) && v >= 0) ? v : 0;
+      renderCycleTimes();
+    };
+    selMin.onchange = apply;
+    selMin.addEventListener('keydown', e => { if (e.key === 'Enter') apply(); });
+  }
+}
+
+// ---------- Review Progress tab ----------
+// A permit is "in review" when it hasn't yet passed its first field
+// inspection (Setback). All reviews that happened on those permits are
+// the ones we care about for day-by-day progress.
+function inReviewPermits(){
+  return allPermits().filter(p => !latestPassingDate(p, 'BPB-SETBAC'));
+}
+
+function ymd(d){
+  if (!(d instanceof Date)) d = new Date(d);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return y + '-' + m + '-' + day;
+}
+
+function addDays(ymdStr, n){
+  const [y,m,d] = ymdStr.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  dt.setDate(dt.getDate()+n);
+  return ymd(dt);
+}
+
+function prettyDay(ymdStr){
+  const [y,m,d] = ymdStr.split('-').map(Number);
+  const dt = new Date(y, m-1, d);
+  return dt.toLocaleDateString(undefined,{month:'short',day:'numeric',weekday:'short'});
+}
+
+// Build a distinct color palette for the review codes (deterministic).
+const REVIEW_COLORS = [
+  '#38bdf8', // sky
+  '#a78bfa', // violet
+  '#34d399', // emerald
+  '#f59e0b', // amber
+  '#f472b6', // pink
+  '#fb7185', // rose
+  '#22d3ee', // cyan
+  '#c084fc', // purple
+  '#84cc16', // lime
+  '#fbbf24', // yellow
+  '#60a5fa', // blue
+  '#f87171', // red
+];
+
+// Short labels for the chart legend so bars don't get crowded.
+const SHORT_REVIEW_LABELS = {
+  'BPAPPINTAK':'Intake',
+  'BPBLDREV-R':'Bldg Rev',
+  'BPAIRPTREV':'Airport',
+  'BPPZREV':'P&Z',
+  'BPENGREV':'Engineering',
+  'BPENGFLOOD':'Floodplain',
+  'BPFEEASMT':'Fee Assmt',
+  'BPWSIMPACT':'W/S Impact',
+  'BPROADIMPA':'Road Impact',
+  'BPWTRSWRWO':'W/S WO',
+  'BPTERMAFFI':'Termite',
+  'BPELEVCERT':'Elev Cert',
+};
+
+// For each (date, code) pair count distinct in-review permits that passed
+// that review on that day. Only non-fail, completed reviews count.
+function collectReviewActivity(){
+  const permits = inReviewPermits();
+  const cell = new Map();            // key "date|code" -> {date, code, desc, permits:Set}
+  const codeDesc = new Map();        // code -> best description
+  const codeTotal = new Map();       // code -> total across window
+  const dateTotal = new Map();       // date -> total across codes
+  let earliest = null, latest = null;
+
+  for (const p of permits){
+    const perDayCode = new Set();    // dedupe repeats of same code on same day for same permit
+    for (const t of (p.Tasks||[])){
+      if (isInspection(t)) continue;
+      if (getTaskTypeRaw(t) !== 'REVIEW') continue;
+      if (getCompleteFlag(t) !== 'Y') continue;
+      if (isFail(t)) continue;
+      const d = getCompleteDate(t);
+      if (!d) continue;
+      const code = t.TaskCode || '';
+      if (!code) continue;
+      const day = ymd(new Date(d));
+      const dedupe = p.CaObjectId + '|' + code + '|' + day;
+      if (perDayCode.has(dedupe)) continue;
+      perDayCode.add(dedupe);
+
+      if (!codeDesc.has(code)) codeDesc.set(code, getTaskDesc(t) || code);
+      else { const prev = codeDesc.get(code); const nd = getTaskDesc(t)||''; if (nd.length > prev.length) codeDesc.set(code, nd); }
+
+      const key = day + '|' + code;
+      if (!cell.has(key)) cell.set(key, {date:day, code, permits:new Set()});
+      cell.get(key).permits.add(p.CaObjectId);
+
+      codeTotal.set(code, (codeTotal.get(code)||0) + 1);
+      dateTotal.set(day, (dateTotal.get(day)||0) + 1);
+      if (!earliest || day < earliest) earliest = day;
+      if (!latest || day > latest) latest = day;
+    }
+  }
+
+  // Materialize cells with counts
+  const cells = [];
+  for (const c of cell.values()){
+    cells.push({date:c.date, code:c.code, n:c.permits.size});
+  }
+
+  // Build full dense date list (so days with zero activity still render)
+  const dates = [];
+  if (earliest && latest){
+    let cur = earliest;
+    let safety = 0;
+    while (cur <= latest && safety++ < 2000){
+      dates.push(cur);
+      cur = addDays(cur,1);
+    }
+  }
+
+  // Codes sorted by total activity (descending) so highest-volume types are
+  // consistently on the bottom of the stacks.
+  const codes = [...codeTotal.entries()]
+    .sort((a,b) => b[1] - a[1])
+    .map(([code,total]) => ({code, desc:codeDesc.get(code)||code, total}));
+
+  return {permits, cells, dates, codes, dateTotal, codeTotal, earliest, latest};
+}
+
+let REVIEW_WINDOW = '30'; // '7' | '14' | '30' | '90' | 'all'
+
+function renderReviewChart(dates, codes, cells){
+  if (!dates.length || !codes.length){
+    return '<div class="rev-chart" style="color:var(--muted);padding:20px;text-align:center">No review activity in this window.</div>';
+  }
+  const colorFor = {};
+  codes.forEach((c,i) => { colorFor[c.code] = REVIEW_COLORS[i % REVIEW_COLORS.length]; });
+
+  // Quick lookup from cells
+  const cellByKey = new Map();
+  for (const c of cells) cellByKey.set(c.date + '|' + c.code, c.n);
+
+  // Day totals to size axis
+  const dayTotals = dates.map(d => {
+    let s = 0; for (const c of codes) s += (cellByKey.get(d+'|'+c.code)||0); return s;
+  });
+  const maxDay = Math.max(1, ...dayTotals);
+
+  // Layout
+  const padL = 34, padR = 10, padT = 10, padB = 58;
+  const width = Math.max(480, 52 + dates.length * Math.max(14, Math.min(36, Math.floor(900/dates.length))));
+  const height = 260;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+  const bw = Math.max(6, Math.min(30, plotW / dates.length - 3));
+  const step = plotW / dates.length;
+
+  // Y gridlines (4 lines)
+  const ySteps = 4;
+  let gridLines = '';
+  for (let i=0;i<=ySteps;i++){
+    const v = Math.round(maxDay * i / ySteps);
+    const y = padT + plotH - (plotH * i / ySteps);
+    gridLines += '<line x1="'+padL+'" x2="'+(padL+plotW)+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="#1e293b" stroke-width="1"/>';
+    gridLines += '<text x="'+(padL-4)+'" y="'+(y+3).toFixed(1)+'" text-anchor="end" fill="#64748b" font-size="10">'+v+'</text>';
+  }
+
+  // Bars — stacked
+  let bars = '';
+  let xLabels = '';
+  for (let i=0;i<dates.length;i++){
+    const d = dates[i];
+    const x = padL + step*i + (step - bw)/2;
+    let yCursor = padT + plotH;
+    for (const c of codes){
+      const n = cellByKey.get(d+'|'+c.code) || 0;
+      if (!n) continue;
+      const h = (n / maxDay) * plotH;
+      yCursor -= h;
+      const color = colorFor[c.code];
+      const short = SHORT_REVIEW_LABELS[c.code] || c.desc;
+      bars += '<rect x="'+x.toFixed(1)+'" y="'+yCursor.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+color+'" opacity="0.92"><title>'+esc(prettyDay(d))+' — '+esc(short)+': '+n+'</title></rect>';
+    }
+    // label every Nth date depending on density
+    const every = dates.length > 45 ? 7 : (dates.length > 20 ? 3 : 1);
+    if (i % every === 0 || i === dates.length-1){
+      const [yy,mm,dd] = d.split('-');
+      const lbl = Number(mm) + '/' + Number(dd);
+      const cx = padL + step*i + step/2;
+      xLabels += '<text x="'+cx.toFixed(1)+'" y="'+(padT+plotH+14)+'" text-anchor="middle" fill="#94a3b8" font-size="10">'+lbl+'</text>';
+    }
+  }
+
+  // Axis line
+  const axis = '<line x1="'+padL+'" x2="'+(padL+plotW)+'" y1="'+(padT+plotH)+'" y2="'+(padT+plotH)+'" stroke="#334155" stroke-width="1"/>';
+
+  // Legend
+  let legend = '<div class="rev-legend">';
+  for (const c of codes){
+    const color = colorFor[c.code];
+    const short = SHORT_REVIEW_LABELS[c.code] || c.desc;
+    legend += '<span class="rev-legend-item"><span class="rev-legend-dot" style="background:'+color+'"></span>'+esc(short)+' <span style="color:#475569">·</span> <span style="color:var(--text)">'+c.total+'</span></span>';
+  }
+  legend += '</div>';
+
+  const svg =
+      '<div class="rev-chart">'
+    + '<div style="color:var(--muted);font-size:12px;margin-bottom:6px">Review steps completed per day (stacked by review type)</div>'
+    + '<div style="overflow-x:auto">'
+    + '<svg width="'+width+'" height="'+height+'" style="display:block">'
+    +   gridLines + bars + xLabels + axis
+    + '</svg></div>'
+    + legend
+    + '</div>';
+  return svg;
+}
+
+function renderReviewTable(dates, codes, cells){
+  if (!dates.length || !codes.length){
+    return '<div class="card" style="padding:14px;color:var(--muted)">No review activity.</div>';
+  }
+  const cellByKey = new Map();
+  for (const c of cells) cellByKey.set(c.date + '|' + c.code, c.n);
+
+  // Table in reverse-chronological order (most recent on top)
+  const datesDesc = [...dates].reverse();
+
+  let head = '<tr><th class="label">Date</th>';
+  for (const c of codes){
+    const short = SHORT_REVIEW_LABELS[c.code] || c.desc;
+    head += '<th title="'+esc(c.desc)+'">'+esc(short)+'</th>';
+  }
+  head += '<th class="total">Total</th></tr>';
+
+  let body = '';
+  let colTotals = codes.map(() => 0);
+  let grand = 0;
+  for (const d of datesDesc){
+    let rowTotal = 0;
+    let row = '<tr><td class="label">'+esc(prettyDay(d))+'</td>';
+    codes.forEach((c,idx) => {
+      const n = cellByKey.get(d+'|'+c.code) || 0;
+      rowTotal += n;
+      colTotals[idx] += n;
+      row += '<td class="'+(n?'':'zero')+'">'+(n || '·')+'</td>';
+    });
+    row += '<td class="total">'+(rowTotal||'·')+'</td></tr>';
+    grand += rowTotal;
+    if (rowTotal > 0) body += row; // only render days with activity — keeps the table tight
+  }
+
+  let foot = '<tr><td class="label">Total</td>';
+  codes.forEach((c,idx) => { foot += '<td>'+colTotals[idx]+'</td>'; });
+  foot += '<td class="total">'+grand+'</td></tr>';
+
+  return ''
+    + '<div class="rev-table-wrap">'
+    + '<table class="rev-table">'
+    +   '<thead>'+head+'</thead>'
+    +   '<tbody>'+body+'</tbody>'
+    +   '<tfoot>'+foot+'</tfoot>'
+    + '</table></div>';
+}
+
+function renderReviews(){
+  const main = document.getElementById('main');
+  if (!DATA){ main.innerHTML = '<div class="empty"><p>Load data first.</p></div>'; return; }
+
+  const act = collectReviewActivity();
+  if (!act.permits.length){
+    main.innerHTML =
+        '<div class="card" style="padding:18px">'
+      + '<h3 style="margin:0 0 6px">Review Progress</h3>'
+      + '<div style="color:var(--muted)">No permits currently in review — every permit has already passed its first field inspection.</div>'
+      + '</div>';
+    return;
+  }
+
+  // Filter to window
+  let windowDates = act.dates;
+  let windowCells = act.cells;
+  if (REVIEW_WINDOW !== 'all' && act.dates.length){
+    const n = parseInt(REVIEW_WINDOW, 10);
+    const end = act.dates[act.dates.length-1];
+    const start = addDays(end, -(n-1));
+    windowDates = act.dates.filter(d => d >= start);
+    const keep = new Set(windowDates);
+    windowCells = act.cells.filter(c => keep.has(c.date));
+  }
+  // Recompute codes list from the filtered cells so the legend/columns
+  // reflect the selected window.
+  const codeTotals = new Map();
+  const codeDesc = new Map();
+  for (const c of windowCells){
+    codeTotals.set(c.code, (codeTotals.get(c.code)||0) + c.n);
+    const existing = act.codes.find(x => x.code === c.code);
+    if (existing) codeDesc.set(c.code, existing.desc);
+  }
+  const windowCodes = [...codeTotals.entries()]
+    .sort((a,b) => b[1] - a[1])
+    .map(([code,total]) => ({code, desc:codeDesc.get(code)||code, total}));
+
+  // Summary stats for window
+  const stepsInWindow = [...codeTotals.values()].reduce((s,v)=>s+v,0);
+  const latest = windowDates.length ? windowDates[windowDates.length-1] : null;
+  const latestN = latest ? (act.dateTotal.get(latest)||0) : 0;
+  const latestLabel = latest ? prettyDay(latest) : '—';
+
+  // "Last 7 days" of the window
+  let last7 = 0;
+  if (windowDates.length){
+    const end = windowDates[windowDates.length-1];
+    const start7 = addDays(end, -6);
+    for (const c of windowCells) if (c.date >= start7) last7 += c.n;
+  }
+
+  const windowLabel =
+      REVIEW_WINDOW === 'all' ? 'All history'
+    : (REVIEW_WINDOW + '-day window');
+
+  const windowOptions = ['7','14','30','90','all'].map(function(v){
+    const label = (v === 'all') ? 'All' : (v + ' days');
+    const sel = (REVIEW_WINDOW === v) ? ' selected' : '';
+    return '<option value="' + v + '"' + sel + '>' + label + '</option>';
+  }).join('');
+
+  const header =
+      '<div class="card" style="padding:14px 16px;margin-bottom:14px">'
+    +   '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap">'
+    +     '<h3 style="margin:0">Review Progress <span style="color:var(--muted);font-weight:500;font-size:13px">· '+act.permits.length+' permits in review</span></h3>'
+    +     '<div class="rev-controls">'
+    +       '<label style="color:var(--muted);font-size:12px">Window</label>'
+    +       '<select id="rev-window">' + windowOptions + '</select>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div style="color:var(--muted);font-size:12px;margin-top:4px">Counts reviews completed for permits that have not yet passed their first field inspection. Each bar stacks that day\u2019s review-type activity.</div>'
+    + '</div>';
+
+  const summary =
+      '<div class="rev-summary">'
+    +   '<div class="card-compact"><div class="lbl">Permits in review</div><div class="val">'+act.permits.length+'</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Reviews in window</div><div class="val">'+stepsInWindow+'</div><div class="lbl" style="margin-top:2px">'+windowLabel+'</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Last 7 days</div><div class="val">'+last7+'</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Most recent day</div><div class="val">'+latestN+'</div><div class="lbl" style="margin-top:2px">'+esc(latestLabel)+'</div></div>'
+    + '</div>';
+
+  main.innerHTML =
+      header
+    + summary
+    + renderReviewChart(windowDates, windowCodes, windowCells)
+    + renderReviewTable(windowDates, windowCodes, windowCells);
+
+  const sel = document.getElementById('rev-window');
+  if (sel) sel.onchange = () => { REVIEW_WINDOW = sel.value; renderReviews(); };
+}
+
+// ---------- Main render ----------
+function render(){
+  const stats = document.getElementById('stats');
+  if (!DATA){
+    stats.textContent = 'No data loaded';
+    document.getElementById('main').innerHTML = '<div class="empty"><h2 style="color:var(--text)">No permits loaded</h2><p>Click <b>Fetch Live Data</b> or <b>Load JSON</b>.</p></div>';
+    document.getElementById('cnt-failed').textContent = '0';
+    document.getElementById('cnt-sched').textContent = '0';
+    document.getElementById('cnt-week').textContent = '0';
+    document.getElementById('cnt-reviews').textContent = '0';
+    return;
+  }
+  const ps = allPermits();
+  // Data-health: how many permits actually have an address, and how many tasks have a milestone?
+  let withAddr = 0, totalTasks = 0, tasksWithMs = 0, tasksWithType = 0;
+  for (const p of ps){
+    if (getAddr(p)) withAddr++;
+    for (const t of (p.Tasks||[])){
+      totalTasks++;
+      if (getMsRaw(t) != null) tasksWithMs++;
+      if (getTaskTypeRaw(t)) tasksWithType++;
+    }
+  }
+  const health = (withAddr < ps.length || tasksWithMs < totalTasks)
+    ? ' <span style="color:var(--warn)">· ⚠ ' + withAddr + '/' + ps.length + ' have address · ' + tasksWithMs + '/' + totalTasks + ' tasks have milestone</span>'
+    : '';
+  stats.innerHTML = '<b>' + ps.length + '</b> permits · ' + new Date(DATA.generated||Date.now()).toLocaleString() + health
+    + ' · <a href="#" id="btn-debug" style="font-size:12px">Debug data</a>';
+  setTimeout(() => {
+    const b = document.getElementById('btn-debug');
+    if (b) b.onclick = (e) => { e.preventDefault(); showDebug(); };
+  }, 0);
+  const statuses = [...new Set(ps.map(p=>p.CaseStatus).filter(Boolean))].sort();
+  const fs = document.getElementById('filter-status');
+  const keep = fs.value;
+  fs.innerHTML = '<option value="">All statuses</option>' + statuses.map(s => '<option ' + (s===keep?'selected':'') + '>' + esc(s) + '</option>').join('');
+
+  document.getElementById('cnt-failed').textContent = collectFailed().length;
+  document.getElementById('cnt-sched').textContent = collectScheduled().length;
+  document.getElementById('cnt-week').textContent = collectThisWeek().length;
+  document.getElementById('cnt-reviews').textContent = inReviewPermits().length;
+
+  if (VIEW === 'batches') renderBatches();
+  else if (VIEW === 'all') renderAll();
+  else if (VIEW === 'failed') renderFailed();
+  else if (VIEW === 'scheduled') renderScheduled();
+  else if (VIEW === 'thisweek') renderThisWeek();
+  else if (VIEW === 'reviews') renderReviews();
+  else if (VIEW === 'cycle') renderCycleTimes();
+}
+
+function applyFilter(){
+  const q = (document.getElementById('search').value||'').toLowerCase();
+  const s = document.getElementById('filter-status').value;
+  // permit cards
+  document.querySelectorAll('#main .card').forEach(c => {
+    const show = (!q || (c.dataset.search||'').includes(q)) && (!s || c.dataset.status === s);
+    c.style.display = show ? '' : 'none';
+  });
+  // inspection rows
+  document.querySelectorAll('#main .insp-row').forEach(c => {
+    const show = (!q || (c.dataset.search||'').includes(q));
+    c.style.display = show ? '' : 'none';
+  });
+}
+
+function setTab(name){
+  VIEW = name;
+  ['batches','all','failed','scheduled','thisweek','reviews','cycle'].forEach(n => {
+    const b = document.getElementById('tab-' + n);
+    if (b) b.classList.toggle('active', n === name);
+  });
+  render();
+}
+
+// Diagnostic: dumps the keys available on the first permit and first task,
+// plus values of the main fields we care about. Helps diagnose "why is it empty?"
+function showDebug(){
+  if (!DATA || !DATA.permits || !DATA.permits.length){ alert('No data loaded.'); return; }
+  const ps = allPermits();
+  const p0 = ps[0] || DATA.permits[0];
+  const t0 = (p0 && p0.Tasks && p0.Tasks[0]) || null;
+  const permitFields = Object.keys(p0 || {}).sort();
+  const taskFields = t0 ? Object.keys(t0).sort() : [];
+  // Coverage across all permits/tasks
+  let n=ps.length, totalTasks=0;
+  const pHas = {Address:0, CaseName:0, Location:0, FormatedAddress:0, CaseNumber:0, CaseStatus:0};
+  const tHas = {StartPoint:0, Milestone:0, TaskGroup:0, Tab:0, PointOfOrigin:0, TaskPoint:0, EndPoint:0, TaskSequence:0, TaskType:0, TaskDesc:0, TaskCode:0, TaskCompleteFlag:0, ResultCode:0, ResultDisplay:0, TargetStartDate:0, TaskCompleteDate:0, TaskAvailableFlag:0, IsReinspection:0, Comments:0, CaTaskCommentsItemList:0};
+  for (const p of ps){
+    for (const k of Object.keys(pHas)) if (p[k] != null && p[k] !== '') pHas[k]++;
+    for (const t of (p.Tasks||[])){
+      totalTasks++;
+      for (const k of Object.keys(tHas)){
+        if (t[k] != null && t[k] !== '' && !(Array.isArray(t[k]) && t[k].length===0)) tHas[k]++;
+      }
+    }
+  }
+  const fmtCov = (o, total) => Object.entries(o).map(([k,v]) =>
+    '<tr><td>' + esc(k) + '</td><td style="text-align:right">' + v + ' / ' + total + '</td><td style="color:' + (v===total?'var(--ok)':(v===0?'var(--err)':'var(--warn)')) + '">' + (total?Math.round(v/total*100):0) + '%</td></tr>'
+  ).join('');
+  const m = document.getElementById('debug-modal');
+  m.querySelector('.debug-body').innerHTML =
+      '<h3>Permit-level field coverage (' + n + ' permits)</h3>'
+    + '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Field</th><th style="text-align:right">Present</th><th style="text-align:right">%</th></tr></thead><tbody>' + fmtCov(pHas, n) + '</tbody></table>'
+    + '<h3 style="margin-top:16px">Task-level field coverage (' + totalTasks + ' tasks)</h3>'
+    + '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Field</th><th style="text-align:right">Present</th><th style="text-align:right">%</th></tr></thead><tbody>' + fmtCov(tHas, totalTasks) + '</tbody></table>'
+    + '<h3 style="margin-top:16px">All permit fields present</h3>'
+    + '<pre>' + esc(permitFields.join(', ')) + '</pre>'
+    + '<h3>All task fields present</h3>'
+    + '<pre>' + esc(taskFields.join(', ')) + '</pre>'
+    + '<h3>First permit sample</h3>'
+    + '<pre>' + esc(JSON.stringify(p0, (k,v) => k==='Tasks' ? (Array.isArray(v)?'<' + v.length + ' tasks — see below>' : v) : v, 2)) + '</pre>'
+    + (t0 ? '<h3>First task of first permit</h3><pre>' + esc(JSON.stringify(t0, null, 2)) + '</pre>' : '');
+  m.style.display='flex';
+}
+function closeDebug(){ document.getElementById('debug-modal').style.display='none'; }
+
+// Wire up UI
+document.getElementById('btn-fetch').onclick = tryFetch;
+document.getElementById('btn-help').onclick = openModal;
+document.getElementById('btn-help2').onclick = openModal;
+document.getElementById('btn-load').onclick = () => document.getElementById('file-input').click();
+document.getElementById('file-input').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { DATA = JSON.parse(await f.text()); render(); } catch(err){ alert('Could not parse JSON: '+err.message); }
+};
+document.getElementById('tab-batches').onclick  = () => setTab('batches');
+document.getElementById('tab-all').onclick      = () => setTab('all');
+document.getElementById('tab-failed').onclick   = () => setTab('failed');
+document.getElementById('tab-scheduled').onclick= () => setTab('scheduled');
+document.getElementById('tab-thisweek').onclick = () => setTab('thisweek');
+document.getElementById('tab-reviews').onclick  = () => setTab('reviews');
+document.getElementById('tab-cycle').onclick    = () => setTab('cycle');
+document.getElementById('search').addEventListener('input', applyFilter);
+document.getElementById('filter-status').addEventListener('change', applyFilter);
+
+// Drag-and-drop JSON
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', async e => {
+  e.preventDefault();
+  const f = [...e.dataTransfer.files].find(x => /\.json$/i.test(x.name));
+  if (!f) return;
+  try { DATA = JSON.parse(await f.text()); render(); } catch(err){ alert('Could not parse JSON'); }
+});
+
+// Build bookmarklets + console script
+document.getElementById('bookmarklet-open').href = buildOpenBookmarklet();
+document.getElementById('bookmarklet-download').href = buildDownloadBookmarklet();
+document.getElementById('console-script').textContent = buildConsoleScript();
+
+// Auto-load if embedded data is present (bookmarklet "open dashboard" path)
+if (window.__EMBEDDED_DATA){ DATA = window.__EMBEDDED_DATA; render(); }
+</script>
+</body>
+</html>
