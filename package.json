@@ -1,0 +1,9 @@
+{
+  "name": "cleburne-permits-refresher",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scheduled fetcher for Cityworks PublicAccess permit data.",
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
