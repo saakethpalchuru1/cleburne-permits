@@ -1,15 +1,15 @@
 #!/usr/bin/env node
-// Logs into Cityworks PublicAccess, runs the same fetch script the dashboard
-// uses (HomePage/GetHomeTabResults + CaseTask + CaseAddress), and writes the
-// result to ../data/latest.json. Designed to run inside a GitHub Actions
-// workflow on a schedule.
+// Logs into Cityworks PublicAccess (a single-page app), runs the same fetch
+// script the dashboard uses, and writes the result to ../data/latest.json.
+// Designed to run inside a GitHub Actions workflow on a schedule.
 
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
 const BASE_URL = 'https://cityworks.cleburne.net/Permits/';
-const LOGIN_URL = BASE_URL + 'login';
+// PublicAccess uses client-side routing; this URL renders the login screen.
+const LOGIN_URL = BASE_URL + '?currentRoutePath=/login';
 
 const USERNAME = process.env.CITYWORKS_USERNAME;
 const PASSWORD = process.env.CITYWORKS_PASSWORD;
@@ -19,95 +19,154 @@ if (!USERNAME || !PASSWORD) {
   process.exit(1);
 }
 
+const DEBUG_DIR = path.join(__dirname, '..', 'debug');
+fs.mkdirSync(DEBUG_DIR, { recursive: true });
+
+async function dumpDebug(page, tag) {
+  try {
+    const png = path.join(DEBUG_DIR, `${tag}.png`);
+    const html = path.join(DEBUG_DIR, `${tag}.html`);
+    await page.screenshot({ path: png, fullPage: true });
+    fs.writeFileSync(html, await page.content());
+    console.log(`[debug] saved ${png} and ${html}`);
+  } catch (e) {
+    console.log('[debug] dump failed:', e.message);
+  }
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
+    viewport: { width: 1400, height: 900 },
+    userAgent:
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36',
   });
   const page = await context.newPage();
+  page.on('console', msg => console.log(`[page-console:${msg.type()}]`, msg.text()));
 
   // ---- Step 1: Sign in ----
   console.log('Going to', LOGIN_URL);
-  await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
 
-  // Find username + password fields with permissive selectors so we don't
-  // have to hardcode Cityworks-specific element names.
-  const usernameSelectors = [
-    'input[name="LoginId" i]',
-    'input[name="username" i]',
-    'input[name="email" i]',
-    'input[type="email"]',
-    'input[id*="login" i]',
-    'input[id*="user" i]',
-    'input[id*="email" i]',
-  ];
-  const passwordSelectors = [
-    'input[name="Password" i]',
-    'input[name="password" i]',
-    'input[type="password"]',
-  ];
-
-  async function findFirst(selectors) {
-    for (const s of selectors) {
-      const handle = await page.$(s);
-      if (handle) return s;
-    }
-    return null;
-  }
-
-  const userSel = await findFirst(usernameSelectors);
-  const passSel = await findFirst(passwordSelectors);
-  if (!userSel || !passSel) {
+  // PublicAccess is an SPA — wait for the password field to actually render
+  // before trying to fill anything.
+  let passField;
+  try {
+    passField = await page.waitForSelector('input[type="password"]', {
+      timeout: 30000,
+      state: 'visible',
+    });
+  } catch (e) {
+    await dumpDebug(page, 'no-password-field');
     throw new Error(
-      `Could not find login form fields on ${page.url()}. ` +
-      `Update LOGIN_URL or selectors in scripts/fetch-permits.js.`
+      'Login form never appeared. The page might be using SSO (Microsoft/Google) ' +
+      'or a different login URL. Check debug/no-password-field.png in the build artifacts.'
     );
   }
-  console.log(`Using username selector: ${userSel}`);
-  console.log(`Using password selector: ${passSel}`);
 
-  await page.fill(userSel, USERNAME);
-  await page.fill(passSel, PASSWORD);
+  // Username field — try to find the closest preceding visible text input.
+  let userField =
+    (await page.$('input[name="LoginId" i]')) ||
+    (await page.$('input[name="username" i]')) ||
+    (await page.$('input[name="email" i]')) ||
+    (await page.$('input[type="email"]:visible')) ||
+    (await page.$('input[type="text"]:visible'));
+  if (!userField) {
+    // Fallback: any visible text-ish input that isn't the password.
+    const all = await page.$$('input');
+    for (const h of all) {
+      const t = (await h.getAttribute('type')) || 'text';
+      const visible = await h.isVisible();
+      if (visible && t !== 'password' && t !== 'hidden' && t !== 'submit' && t !== 'button') {
+        userField = h;
+        break;
+      }
+    }
+  }
+  if (!userField) {
+    await dumpDebug(page, 'no-username-field');
+    throw new Error('Could not find username field. See debug/no-username-field.png.');
+  }
 
-  // Submit. Try button[type=submit] first, then a generic submit input.
-  const submitSelectors = [
+  console.log('Filling credentials...');
+  await userField.fill(USERNAME);
+  await passField.fill(PASSWORD);
+
+  // Submit. Try common buttons; if none match, press Enter on the password field.
+  const submitCandidates = [
     'button[type="submit"]',
     'input[type="submit"]',
     'button:has-text("Sign In")',
+    'button:has-text("Sign in")',
     'button:has-text("Log In")',
     'button:has-text("Login")',
+    'button:has-text("Submit")',
   ];
-  const submitSel = await findFirst(submitSelectors);
-  if (!submitSel) throw new Error('Could not find submit button on login form.');
-  console.log(`Submitting via: ${submitSel}`);
-
-  await Promise.all([
-    page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {}),
-    page.click(submitSel),
-  ]);
-
-  const postLoginUrl = page.url();
-  console.log('Post-login URL:', postLoginUrl);
-  if (/login|sign.?in|error/i.test(postLoginUrl) && !postLoginUrl.endsWith('/Permits/')) {
-    throw new Error('Login appears to have failed. Check CITYWORKS_USERNAME / CITYWORKS_PASSWORD.');
+  let clicked = false;
+  for (const sel of submitCandidates) {
+    const el = await page.$(sel);
+    if (el && (await el.isVisible())) {
+      console.log('Submitting via', sel);
+      await el.click();
+      clicked = true;
+      break;
+    }
+  }
+  if (!clicked) {
+    console.log('No submit button matched; pressing Enter.');
+    await passField.press('Enter');
   }
 
-  // Make sure we're inside /Permits/ before running fetches.
-  if (!postLoginUrl.includes('/Permits/')) {
-    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+  // Wait for the password field to disappear (or URL to change), which signals
+  // the SPA has accepted the login and routed away.
+  try {
+    await Promise.race([
+      page.waitForSelector('input[type="password"]', { state: 'detached', timeout: 30000 }),
+      page.waitForURL(u => !/login/i.test(u.toString()), { timeout: 30000 }),
+    ]);
+  } catch (e) {
+    await dumpDebug(page, 'login-not-progressing');
+    throw new Error('Login submitted but page didn\'t advance — credentials may be wrong, or there\'s an MFA prompt.');
+  }
+
+  console.log('Post-login URL:', page.url());
+
+  // Make sure we're at /Permits/ before running fetches.
+  if (!/\/Permits\/?$/.test(page.url()) && !page.url().includes('/Permits/')) {
+    await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+  }
+  // Give the SPA a moment to settle so cookies/session state is ready.
+  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+
+  // Sanity-check the session by hitting the home tab endpoint once.
+  const sanityCheck = await page.evaluate(async () => {
+    const r = await fetch('/Permits/services/HomePage/GetHomeTabResults', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'data=1',
+    });
+    return { status: r.status, ok: r.ok };
+  });
+  console.log('Sanity check on HomePage/GetHomeTabResults:', sanityCheck);
+  if (!sanityCheck.ok) {
+    await dumpDebug(page, 'session-not-authed');
+    throw new Error('Session is not authenticated. Got status ' + sanityCheck.status);
   }
 
   // ---- Step 2: Run the same fetch logic the dashboard uses ----
   console.log('Fetching permits...');
   const data = await page.evaluate(async () => {
     const BASE = location.origin + '/Permits/services/';
-    const post = (path, obj) => fetch(BASE + path, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'data=' + encodeURIComponent(JSON.stringify(obj || {})),
-    }).then(r => r.json()).catch(() => ({ Value: [] }));
+    const post = (path, obj) =>
+      fetch(BASE + path, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'data=' + encodeURIComponent(JSON.stringify(obj || {})),
+      })
+        .then(r => r.json())
+        .catch(() => ({ Value: [] }));
 
     const tab = await fetch(BASE + 'HomePage/GetHomeTabResults', {
       method: 'POST',
@@ -164,8 +223,6 @@ if (!USERNAME || !PASSWORD) {
       return { addr: null, record: null };
     }
 
-    // Fetch tasks & address with bounded concurrency. Cityworks rate-limits
-    // bursty traffic, so keep this conservative.
     const CONC = 4;
     const idx = { n: 0 };
     async function worker() {
@@ -174,7 +231,10 @@ if (!USERNAME || !PASSWORD) {
         if (i >= permits.length) return;
         const p = permits[i];
         try {
-          const tr = await post('CaseTask/ByCaObjectId', { CaObjectId: p.CaObjectId, CheckRelatedItems: true });
+          const tr = await post('CaseTask/ByCaObjectId', {
+            CaObjectId: p.CaObjectId,
+            CheckRelatedItems: true,
+          });
           p.Tasks = (tr.Value || []).map(t => {
             const o = Object.assign({}, t);
             if (o.TaskDesc) o.TaskDesc = String(o.TaskDesc).trim();
@@ -201,7 +261,6 @@ if (!USERNAME || !PASSWORD) {
       }
     }
     await Promise.all(Array.from({ length: CONC }, worker));
-
     return { generated: Date.now(), permits };
   });
 
