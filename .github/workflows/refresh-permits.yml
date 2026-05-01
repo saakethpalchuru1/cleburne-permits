@@ -1,0 +1,43 @@
+name: Refresh Cityworks JSON
+
+on:
+  schedule:
+    - cron: '0 11-23 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-permits
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Fetch permits
+        env:
+          CITYWORKS_USERNAME: ${{ secrets.CITYWORKS_USERNAME }}
+          CITYWORKS_PASSWORD: ${{ secrets.CITYWORKS_PASSWORD }}
+        run: node scripts/fetch-permits.js
+      - name: Commit & push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/latest.json
+          if git diff --staged --quiet; then
+            echo "No changes — skipping commit."
+            exit 0
+          fi
+          git commit -m "auto-refresh: $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git push
