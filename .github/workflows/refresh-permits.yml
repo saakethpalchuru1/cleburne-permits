@@ -5,7 +5,7 @@ on:
     # Hourly, Monday-Friday, ~6 AM to ~6 PM US Central.
     # GitHub Actions cron runs in UTC. CDT (Mar-Nov, UTC-5): 6 AM CDT = 11:00 UTC.
     # During CST (Nov-Mar, UTC-6) the runs shift one hour earlier (5 AM - 5 PM).
-    - cron: '0 11-23 * * 1-5'
+    - cron: '17 11-23 * * 1-5'
   workflow_dispatch:
 
 permissions:
