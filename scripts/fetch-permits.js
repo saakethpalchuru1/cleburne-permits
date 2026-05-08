@@ -263,26 +263,38 @@ async function dumpDebug(page, tag) {
       return o;
     }
 
-    function injectAtPosition(tasksArr, anchorCode, before, newTasks){
-      // Insert newTasks immediately before the FIRST task whose code matches
-      // anchorCode. If anchor is missing, append at the end of milestone 4.
+    function findFirstIndex(arr, code){
+      for (let i = 0; i < arr.length; i++) if (arr[i].TaskCode === code) return i;
+      return -1;
+    }
+    function findLastIndex(arr, code){
+      for (let i = arr.length - 1; i >= 0; i--) if (arr[i].TaskCode === code) return i;
+      return -1;
+    }
+    function injectAt(tasksArr, opts, newTasks){
+      // opts: { afterLast: code } | { beforeFirst: code }
+      // Falls back through fallback list if primary anchor missing.
+      // Last resort: append at end of milestone-4 group, or end of array.
       if (!newTasks.length) return;
-      let idx = -1;
-      for (let i = 0; i < tasksArr.length; i++){
-        if (tasksArr[i].TaskCode === anchorCode){ idx = i; break; }
-      }
-      if (idx === -1){
-        // Fallback: append at end of milestone 4 group, if any; else just push.
-        let lastM4 = -1;
-        for (let i = 0; i < tasksArr.length; i++){
-          const m = tasksArr[i].StartPoint || tasksArr[i].Milestone || tasksArr[i].TaskGroup || tasksArr[i].Tab;
-          if (Number(m) === 4) lastM4 = i;
+      const tries = Array.isArray(opts) ? opts : [opts];
+      for (const opt of tries){
+        if (opt.afterLast){
+          const i = findLastIndex(tasksArr, opt.afterLast);
+          if (i >= 0){ tasksArr.splice(i + 1, 0, ...newTasks); return; }
         }
-        if (lastM4 >= 0) tasksArr.splice(lastM4 + 1, 0, ...newTasks);
-        else tasksArr.push(...newTasks);
-      } else {
-        tasksArr.splice(before ? idx : idx + 1, 0, ...newTasks);
+        if (opt.beforeFirst){
+          const i = findFirstIndex(tasksArr, opt.beforeFirst);
+          if (i >= 0){ tasksArr.splice(i, 0, ...newTasks); return; }
+        }
       }
+      // Fallback: end of milestone 4
+      let lastM4 = -1;
+      for (let i = 0; i < tasksArr.length; i++){
+        const m = tasksArr[i].StartPoint || tasksArr[i].Milestone || tasksArr[i].TaskGroup || tasksArr[i].Tab;
+        if (Number(m) === 4) lastM4 = i;
+      }
+      if (lastM4 >= 0) tasksArr.splice(lastM4 + 1, 0, ...newTasks);
+      else tasksArr.push(...newTasks);
     }
 
     const CONC = 4;
@@ -324,7 +336,13 @@ async function dumpDebug(page, tag) {
                 return o;
               });
             if (tpoles.length){
-              injectAtPosition(p.Tasks, 'BPB-SETBAC', /*before=*/true, tpoles);
+              // T-Pole goes between Create Water/Sewer and Setback — i.e.
+              // right after BPWTRSWRWO (review step), or right before SETBAC
+              // if WTRSWRWO is missing.
+              injectAt(p.Tasks, [
+                { afterLast: 'BPWTRSWRWO' },
+                { beforeFirst: 'BPB-SETBAC' },
+              ], tpoles);
               mergedTPole += tpoles.length;
             }
           }
@@ -343,7 +361,13 @@ async function dumpDebug(page, tag) {
                 return o;
               });
             if (roughs.length){
-              injectAtPosition(p.Tasks, 'BPB-FOUNDA', /*before=*/true, roughs);
+              // Rough Plumbing goes right after the LAST Setback row (so it
+              // lands after any reinspection attempts), with the foundation
+              // anchor as a safety net.
+              injectAt(p.Tasks, [
+                { afterLast: 'BPB-SETBAC' },
+                { beforeFirst: 'BPB-FOUNDA' },
+              ], roughs);
               mergedRough += roughs.length;
             }
           }
