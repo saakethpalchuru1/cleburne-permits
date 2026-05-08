@@ -1,14 +1,17 @@
 #!/usr/bin/env node
-// Logs into Cityworks PublicAccess (a single-page app), runs the same fetch
-// script the dashboard uses, and writes the result to ../data/latest.json.
-// Designed to run inside a GitHub Actions workflow on a schedule.
+// Logs into Cityworks PublicAccess (a single-page app), pulls all residential,
+// plumbing, and electrical permits, and stitches BPEL-TPOLE (T-Pole) and
+// BPPL-ROUGH (Rough Plumbing) tasks from the plumbing/electrical sub-permits
+// into each residential permit's Tasks array — so the dashboard sees them as
+// part of the main workflow.
+//
+// Writes output to ../data/latest.json. Designed for GitHub Actions.
 
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
 const BASE_URL = 'https://cityworks.cleburne.net/Permits/';
-// PublicAccess uses client-side routing; this URL renders the login screen.
 const LOGIN_URL = BASE_URL + '?currentRoutePath=/login';
 
 const USERNAME = process.env.CITYWORKS_USERNAME;
@@ -48,8 +51,6 @@ async function dumpDebug(page, tag) {
   console.log('Going to', LOGIN_URL);
   await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
 
-  // PublicAccess is an SPA — wait for the password field to actually render
-  // before trying to fill anything.
   let passField;
   try {
     passField = await page.waitForSelector('input[type="password"]', {
@@ -58,13 +59,9 @@ async function dumpDebug(page, tag) {
     });
   } catch (e) {
     await dumpDebug(page, 'no-password-field');
-    throw new Error(
-      'Login form never appeared. The page might be using SSO (Microsoft/Google) ' +
-      'or a different login URL. Check debug/no-password-field.png in the build artifacts.'
-    );
+    throw new Error('Login form never appeared. Check debug/no-password-field.png.');
   }
 
-  // Username field — try to find the closest preceding visible text input.
   let userField =
     (await page.$('input[name="LoginId" i]')) ||
     (await page.$('input[name="username" i]')) ||
@@ -72,7 +69,6 @@ async function dumpDebug(page, tag) {
     (await page.$('input[type="email"]:visible')) ||
     (await page.$('input[type="text"]:visible'));
   if (!userField) {
-    // Fallback: any visible text-ish input that isn't the password.
     const all = await page.$$('input');
     for (const h of all) {
       const t = (await h.getAttribute('type')) || 'text';
@@ -85,14 +81,12 @@ async function dumpDebug(page, tag) {
   }
   if (!userField) {
     await dumpDebug(page, 'no-username-field');
-    throw new Error('Could not find username field. See debug/no-username-field.png.');
+    throw new Error('Could not find username field.');
   }
 
-  console.log('Filling credentials...');
   await userField.fill(USERNAME);
   await passField.fill(PASSWORD);
 
-  // Submit. Try common buttons; if none match, press Enter on the password field.
   const submitCandidates = [
     'button[type="submit"]',
     'input[type="submit"]',
@@ -106,19 +100,13 @@ async function dumpDebug(page, tag) {
   for (const sel of submitCandidates) {
     const el = await page.$(sel);
     if (el && (await el.isVisible())) {
-      console.log('Submitting via', sel);
       await el.click();
       clicked = true;
       break;
     }
   }
-  if (!clicked) {
-    console.log('No submit button matched; pressing Enter.');
-    await passField.press('Enter');
-  }
+  if (!clicked) await passField.press('Enter');
 
-  // Wait for the password field to disappear (or URL to change), which signals
-  // the SPA has accepted the login and routed away.
   try {
     await Promise.race([
       page.waitForSelector('input[type="password"]', { state: 'detached', timeout: 30000 }),
@@ -126,36 +114,18 @@ async function dumpDebug(page, tag) {
     ]);
   } catch (e) {
     await dumpDebug(page, 'login-not-progressing');
-    throw new Error('Login submitted but page didn\'t advance — credentials may be wrong, or there\'s an MFA prompt.');
+    throw new Error('Login submitted but page did not advance.');
   }
 
   console.log('Post-login URL:', page.url());
 
-  // Make sure we're at /Permits/ before running fetches.
   if (!/\/Permits\/?$/.test(page.url()) && !page.url().includes('/Permits/')) {
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
   }
-  // Give the SPA a moment to settle so cookies/session state is ready.
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
-  // Sanity-check the session by hitting the home tab endpoint once.
-  const sanityCheck = await page.evaluate(async () => {
-    const r = await fetch('/Permits/services/HomePage/GetHomeTabResults', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'data=1',
-    });
-    return { status: r.status, ok: r.ok };
-  });
-  console.log('Sanity check on HomePage/GetHomeTabResults:', sanityCheck);
-  if (!sanityCheck.ok) {
-    await dumpDebug(page, 'session-not-authed');
-    throw new Error('Session is not authenticated. Got status ' + sanityCheck.status);
-  }
-
-  // ---- Step 2: Run the same fetch logic the dashboard uses ----
-  console.log('Fetching permits...');
+  // ---- Step 2: Run the data pull inside the page context ----
+  console.log('Fetching permits + plumbing/electrical sub-permits...');
   const data = await page.evaluate(async () => {
     const BASE = location.origin + '/Permits/services/';
     const post = (path, obj) =>
@@ -168,17 +138,69 @@ async function dumpDebug(page, tag) {
         .then(r => r.json())
         .catch(() => ({ Value: [] }));
 
-    const tab = await fetch(BASE + 'HomePage/GetHomeTabResults', {
+    // Address normalizer that mirrors the dashboard's normStr/addrKeys.
+    function normAddr(s){
+      if (!s) return '';
+      return String(s).toUpperCase()
+        .replace(/[,.#]/g, ' ')
+        .replace(/\bSTREET\b/g, 'ST')
+        .replace(/\bDRIVE\b/g, 'DR')
+        .replace(/\bROAD\b/g, 'RD')
+        .replace(/\bAVENUE\b/g, 'AVE')
+        .replace(/\bBOULEVARD\b/g, 'BLVD')
+        .replace(/\bLANE\b/g, 'LN')
+        .replace(/\bCIRCLE\b/g, 'CIR')
+        .replace(/\bCOURT\b/g, 'CT')
+        .replace(/\bPLACE\b/g, 'PL')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(' ')
+        .slice(0, 4)
+        .join(' ');
+    }
+
+    // ---- 2a. Pull the home tab (all cases this account can see) ----
+    const home = await fetch(BASE + 'HomePage/GetHomeTabResults', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: 'data=1',
     }).then(r => r.json());
 
     const EXCLUDED = new Set(['CON-005561']);
-    const permits = (tab.Value || [])
-      .filter(p => p && p.CaseType !== 'BPCONTRACT' && !EXCLUDED.has(p.CaseNumber))
-      .map(p => Object.assign({}, p));
+    const all = (home.Value || [])
+      .filter(p => p && p.CaseType !== 'BPCONTRACT' && !EXCLUDED.has(p.CaseNumber));
 
+    // Split by SubType: residential vs. plumbing vs. electrical sub-permits.
+    const residential = all.filter(p => p.SubType === 'BPNEWCONST').map(p => Object.assign({}, p));
+    const plumbing    = all.filter(p => p.SubType === 'BPPLUMBING');
+    const electrical  = all.filter(p => p.SubType === 'BPELECTRIC');
+
+    // Build address -> sub-permit CaObjectId maps so we can match by address.
+    function buildAddrMap(list){
+      const m = new Map();
+      for (const p of list){
+        const a = normAddr(p.Location || p.Address || '');
+        if (!a) continue;
+        if (!m.has(a)) m.set(a, []);
+        m.get(a).push(p.CaObjectId);
+      }
+      return m;
+    }
+    const plumbByAddr = buildAddrMap(plumbing);
+    const elecByAddr  = buildAddrMap(electrical);
+
+    // Cache so we don't re-fetch the same sub-permit's tasks if it shows up
+    // multiple times (shouldn't, but cheap insurance).
+    const subTaskCache = new Map();
+    async function fetchSubTasks(caObjectId){
+      if (subTaskCache.has(caObjectId)) return subTaskCache.get(caObjectId);
+      const r = await post('CaseTask/ByCaObjectId', { CaObjectId: caObjectId, CheckRelatedItems: true });
+      const tasks = r.Value || [];
+      subTaskCache.set(caObjectId, tasks);
+      return tasks;
+    }
+
+    // ---- 2b. Address resolution for residential permits ----
     function deriveAddress(rec) {
       if (!rec) return null;
       if (rec.FormatedAddress) return rec.FormatedAddress;
@@ -223,37 +245,108 @@ async function dumpDebug(page, tag) {
       return { addr: null, record: null };
     }
 
+    // ---- 2c. For each residential permit, pull tasks + matched sub-permit
+    //          inspection rows, then merge T-Pole / Rough Plumbing into the
+    //          Tasks array at the right positions. ----
+    function tidyTask(t){
+      const o = Object.assign({}, t);
+      if (o.TaskDesc) o.TaskDesc = String(o.TaskDesc).trim();
+      if (Array.isArray(o.CaTaskCommentsItemList)) {
+        o.Comments = o.CaTaskCommentsItemList.map(c => ({
+          text: (c.Commenttext || c.CommentText || '').trim(),
+          by: (c.CreatedByLoginId || c.LoginId || '').trim(),
+          date: c.DateCreated || c.CreatedDate || null,
+        }));
+      } else if (!Array.isArray(o.Comments)) {
+        o.Comments = [];
+      }
+      return o;
+    }
+
+    function injectAtPosition(tasksArr, anchorCode, before, newTasks){
+      // Insert newTasks immediately before the FIRST task whose code matches
+      // anchorCode. If anchor is missing, append at the end of milestone 4.
+      if (!newTasks.length) return;
+      let idx = -1;
+      for (let i = 0; i < tasksArr.length; i++){
+        if (tasksArr[i].TaskCode === anchorCode){ idx = i; break; }
+      }
+      if (idx === -1){
+        // Fallback: append at end of milestone 4 group, if any; else just push.
+        let lastM4 = -1;
+        for (let i = 0; i < tasksArr.length; i++){
+          const m = tasksArr[i].StartPoint || tasksArr[i].Milestone || tasksArr[i].TaskGroup || tasksArr[i].Tab;
+          if (Number(m) === 4) lastM4 = i;
+        }
+        if (lastM4 >= 0) tasksArr.splice(lastM4 + 1, 0, ...newTasks);
+        else tasksArr.push(...newTasks);
+      } else {
+        tasksArr.splice(before ? idx : idx + 1, 0, ...newTasks);
+      }
+    }
+
     const CONC = 4;
     const idx = { n: 0 };
+    let mergedTPole = 0, mergedRough = 0, missingPlumb = 0, missingElec = 0;
+
     async function worker() {
       while (true) {
         const i = idx.n++;
-        if (i >= permits.length) return;
-        const p = permits[i];
+        if (i >= residential.length) return;
+        const p = residential[i];
         try {
+          // Main residential workflow tasks.
           const tr = await post('CaseTask/ByCaObjectId', {
             CaObjectId: p.CaObjectId,
             CheckRelatedItems: true,
           });
-          p.Tasks = (tr.Value || []).map(t => {
-            const o = Object.assign({}, t);
-            if (o.TaskDesc) o.TaskDesc = String(o.TaskDesc).trim();
-            if (Array.isArray(o.CaTaskCommentsItemList)) {
-              o.Comments = o.CaTaskCommentsItemList.map(c => ({
-                text: (c.Commenttext || c.CommentText || '').trim(),
-                by: (c.CreatedByLoginId || c.LoginId || '').trim(),
-                date: c.DateCreated || c.CreatedDate || null,
-              }));
-            } else if (!Array.isArray(o.Comments)) {
-              o.Comments = [];
-            }
-            return o;
-          });
+          p.Tasks = (tr.Value || []).map(tidyTask);
 
+          // Resolve street address.
           const { addr, record } = await fetchAddress(p.CaObjectId);
           if (addr) p.Address = addr;
           if (record) p.AddressRecord = record;
           if (!p.Address) p.Address = p.Location || null;
+
+          const matchKey = normAddr(p.Address || p.Location);
+
+          // T-Pole rows from the matched electrical sub-permit.
+          const elIds = (matchKey && elecByAddr.get(matchKey)) || [];
+          if (!elIds.length) missingElec++;
+          for (const eid of elIds){
+            const subTasks = await fetchSubTasks(eid);
+            const tpoles = subTasks
+              .filter(t => t.TaskCode === 'BPEL-TPOLE')
+              .map(t => {
+                const o = tidyTask(t);
+                o._fromCaObjectId = eid;
+                o._fromCaseSubType = 'BPELECTRIC';
+                return o;
+              });
+            if (tpoles.length){
+              injectAtPosition(p.Tasks, 'BPB-SETBAC', /*before=*/true, tpoles);
+              mergedTPole += tpoles.length;
+            }
+          }
+
+          // Rough Plumbing rows from the matched plumbing sub-permit.
+          const plIds = (matchKey && plumbByAddr.get(matchKey)) || [];
+          if (!plIds.length) missingPlumb++;
+          for (const pid of plIds){
+            const subTasks = await fetchSubTasks(pid);
+            const roughs = subTasks
+              .filter(t => t.TaskCode === 'BPPL-ROUGH')
+              .map(t => {
+                const o = tidyTask(t);
+                o._fromCaObjectId = pid;
+                o._fromCaseSubType = 'BPPLUMBING';
+                return o;
+              });
+            if (roughs.length){
+              injectAtPosition(p.Tasks, 'BPB-FOUNDA', /*before=*/true, roughs);
+              mergedRough += roughs.length;
+            }
+          }
         } catch (e) {
           p.Tasks = p.Tasks || [];
           p._err = e.message;
@@ -261,10 +354,15 @@ async function dumpDebug(page, tag) {
       }
     }
     await Promise.all(Array.from({ length: CONC }, worker));
-    return { generated: Date.now(), permits };
+
+    return {
+      generated: Date.now(),
+      permits: residential,
+      _stats: { mergedTPole, mergedRough, missingPlumb, missingElec, total: residential.length },
+    };
   });
 
-  console.log(`Fetched ${data.permits.length} permits.`);
+  console.log(`Fetched ${data.permits.length} permits. Stats:`, data._stats);
 
   // ---- Step 3: Write to data/latest.json ----
   const outPath = path.join(__dirname, '..', 'data', 'latest.json');
