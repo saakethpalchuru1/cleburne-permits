@@ -75,6 +75,14 @@
   .bo-tile.lag{background:#f59e0b}
   .bo-tile.none{background:#1e293b;border:1px dashed #334155}
   .bo-tile.none .t-name, .bo-tile.none .t-count{color:var(--muted)}
+  /* Optional pipeline stages (e.g. T-Pole). Visually distinct from the
+     required pass/lag/none colors so it reads as informational only. */
+  .bo-tile.optional{background:#334155;border:1px dashed #64748b}
+  .bo-tile.optional .t-name, .bo-tile.optional .t-count{color:#e2e8f0}
+  .bo-tile.optional.pass{background:#0e7490;border-color:#22d3ee}
+  .bo-tile.optional.pass .t-name, .bo-tile.optional.pass .t-count{color:#ecfeff}
+  .bo-tile.optional.empty{background:#0f172a;border:1px dashed #334155}
+  .bo-tile.optional.empty .t-name, .bo-tile.optional.empty .t-count{color:#64748b}
   .bo-laggers{margin-top:4px;padding:6px 8px;background:#0b1220;border-radius:4px;border-left:2px solid var(--warn);font-size:11.5px;line-height:1.5;color:#cbd5e1}
   .bo-laggers b{color:#fcd34d;font-weight:600}
 
@@ -849,27 +857,30 @@ function batchInspectionStatus(){
         if (byAddr[k]){ permits.push({addr:a, permit:byAddr[k]}); break; }
       }
     }
-    // Build stages from the default pipeline (Setback → Paving) — these are
-    // the construction-milestone inspections the user actually compares across
-    // a batch. Each stage shows pass count + laggard list. Optional stages
-    // (like T-Pole) are excluded — we never want them to count as "lagging".
-    const stages = DEFAULT_CYCLE_STAGES.filter(s => !isOptionalCode(s.code)).map(stage => {
+    // Build stages from the default pipeline. Each stage shows pass count +
+    // laggard list. Optional stages (like T-Pole) still appear as a tile so
+    // the user can see who got it, but they don't count toward lagging or
+    // break the "all aligned through X" detection.
+    const stages = DEFAULT_CYCLE_STAGES.map(stage => {
       const passed = [], pending = [];
       for (const entry of permits){
         const d = latestPassingDate(entry.permit, stage.code);
         if (d) passed.push({...entry, date:d});
         else pending.push(entry);
       }
-      return {code:stage.code, label:stage.label, passed, pending};
+      return {code:stage.code, label:stage.label, passed, pending, optional: isOptionalCode(stage.code)};
     });
-    // Find the latest stage where ALL permits have passed (consecutive from start).
+    // Find the latest *required* stage where ALL permits have passed
+    // (consecutive from start). Optional stages are skipped — a partial T-Pole
+    // shouldn't break the chain.
     let lastUniform = null;
     for (const s of stages){
+      if (s.optional) continue;
       if (permits.length > 0 && s.passed.length === permits.length) lastUniform = s;
       else break;
     }
-    // Stages where some have passed but others haven't → laggards.
-    const laggingStages = stages.filter(s => s.passed.length > 0 && s.pending.length > 0);
+    // Lagging stages exclude optional codes — T-Pole never shows up as lagging.
+    const laggingStages = stages.filter(s => !s.optional && s.passed.length > 0 && s.pending.length > 0);
     return {batch:num, permits, stages, lastUniform, laggingStages};
   });
 }
@@ -896,10 +907,20 @@ function renderBatchOverview(){
           : 'Diverging from the start');
     const strip = r.stages.map(s => {
       const isPass = s.passed.length === n && n > 0;
-      const isLag = s.passed.length > 0 && s.pending.length > 0;
-      const cls = isPass ? 'pass' : isLag ? 'lag' : 'none';
-      const tip = s.label + ': ' + s.passed.length + ' of ' + n + ' passed'
-                + (isLag ? ' · lagging: ' + s.pending.map(e => streetOnly(e.addr)).join(', ') : '');
+      const isLag  = s.passed.length > 0 && s.pending.length > 0;
+      // Optional stages get their own neutral tile style — they aren't
+      // pass/lag/none in the required-pipeline sense.
+      let cls;
+      if (s.optional){
+        cls = isPass ? 'optional pass' : (s.passed.length > 0 ? 'optional' : 'optional empty');
+      } else {
+        cls = isPass ? 'pass' : isLag ? 'lag' : 'none';
+      }
+      const tip = s.label
+                + (s.optional ? ' (optional — not required on every unit)' : '')
+                + ': ' + s.passed.length + ' of ' + n + ' passed'
+                + (!s.optional && isLag ? ' · lagging: ' + s.pending.map(e => streetOnly(e.addr)).join(', ') : '')
+                + (s.optional && s.passed.length ? ' · passed: ' + s.passed.map(e => streetOnly(e.addr)).join(', ') : '');
       return '<div class="bo-tile ' + cls + '" title="' + esc(tip) + '">'
         + '<div class="t-name">' + esc(s.label) + '</div>'
         + '<div class="t-count">' + s.passed.length + '/' + n + '</div>'
