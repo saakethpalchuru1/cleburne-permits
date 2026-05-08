@@ -124,6 +124,8 @@
   .wf-dot.curr{background:var(--curr);border-color:var(--curr);box-shadow:0 0 0 3px rgba(6,182,212,.25)}
   .wf-dot.rejected{background:var(--err);border-color:var(--err)}
   .wf-dot.available{background:var(--warn);border-color:var(--warn)}
+  .wf-dot.optional{background:#1e293b;border-color:#475569;border-style:dashed}
+  .wf-step.optional .wf-label{color:#94a3b8;font-style:italic}
   .wf-label{font-size:9px;color:var(--muted);text-align:center;margin-top:4px;line-height:1.15;max-width:70px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .wf-date{font-size:8px;color:var(--muted);margin-top:1px}
   .wf-step.done .wf-label{color:#86efac}
@@ -187,6 +189,13 @@
   .attempt.fail{border-left:2px solid var(--err)}
   .attempt.pass{border-left:2px solid var(--ok)}
   .attempt.pending{border-left:2px solid var(--warn);border-style:dashed}
+  .seg-toggle{display:inline-flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--panel)}
+  .seg-toggle .seg-btn{background:transparent;color:var(--muted);border:none;padding:6px 12px;cursor:pointer;font-size:12.5px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+  .seg-toggle .seg-btn:not(:last-child){border-right:1px solid var(--border)}
+  .seg-toggle .seg-btn:hover{color:var(--text);background:var(--panel2)}
+  .seg-toggle .seg-btn.active{background:#1d4ed8;color:#fff}
+  .seg-toggle .seg-btn.active .seg-count{background:rgba(255,255,255,.2);color:#fff}
+  .seg-toggle .seg-count{background:var(--panel2);color:var(--muted);border-radius:9999px;padding:1px 7px;font-size:11px;font-weight:600}
   .attempt-hdr{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:12px;color:var(--muted)}
   .attempt-num{font-weight:600;color:var(--text);min-width:72px}
   .attempt-date{color:var(--text);font-weight:500}
@@ -621,6 +630,13 @@ function allPermits(){
     .filter(p => !EXCLUDED_CASES.has(p.CaseNumber));
 }
 
+// Inspection codes that are not required on every unit (e.g. T-Pole is only
+// done every other unit by choice). When incomplete they render neutral, not
+// yellow/pending, and they don't count toward batch lagging.
+const OPTIONAL_INSPECTION_CODES = new Set(['BPEL-TPOLE']);
+
+function isOptionalCode(code){ return OPTIONAL_INSPECTION_CODES.has(code); }
+
 function statusClass(t){
   if (!t) return 'pending';
   if (getCompleteFlag(t) === 'Y'){
@@ -628,6 +644,9 @@ function statusClass(t){
     if (/REJECT|DENY|DENIED|FAIL|NO\s*SHOW/.test(rc) || /REJECT|DENY|DENIED|FAIL|NO\s*SHOW/.test(rd)) return 'rejected';
     return 'done';
   }
+  // Incomplete optional inspections render as neutral (not yellow), since the
+  // crew isn't necessarily expecting to do them.
+  if (t.TaskCode && isOptionalCode(t.TaskCode)) return 'optional';
   if (getAvailFlag(t) === 'Y') return 'available';
   return 'pending';
 }
@@ -832,8 +851,9 @@ function batchInspectionStatus(){
     }
     // Build stages from the default pipeline (Setback → Paving) — these are
     // the construction-milestone inspections the user actually compares across
-    // a batch. Each stage shows pass count + laggard list.
-    const stages = DEFAULT_CYCLE_STAGES.map(stage => {
+    // a batch. Each stage shows pass count + laggard list. Optional stages
+    // (like T-Pole) are excluded — we never want them to count as "lagging".
+    const stages = DEFAULT_CYCLE_STAGES.filter(s => !isOptionalCode(s.code)).map(stage => {
       const passed = [], pending = [];
       for (const entry of permits){
         const d = latestPassingDate(entry.permit, stage.code);
@@ -1156,40 +1176,55 @@ function renderFailedGroup(g){
     + '</div>';
 }
 
+// Persisted across re-renders.
+let FAIL_VIEW = 'all'; // 'all' | 'open'
+
 function renderFailed(){
   const main = document.getElementById('main');
-  const groups = failureHistory();
-  if (!groups.length){
+  const allGroups = failureHistory();
+  if (!allGroups.length){
     main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No failed inspections</h2><p>Nothing currently marked as failed / rejected / denied / no-show.</p></div>';
     return;
   }
-  const open = groups.filter(g => !g.passed);
-  const resolved = groups.filter(g => g.passed);
+  const open = allGroups.filter(g => !g.passed);
+  const resolved = allGroups.filter(g => g.passed);
   const avgDaysToPass = resolved.length ? (resolved.reduce((s,g)=>s+(g.daysToPass||0),0)/resolved.length) : null;
   const maxOpenDays = open.length ? Math.max(...open.map(g => g.daysOpen||0)) : 0;
-  const uniquePermits = new Set(groups.map(g => g.p.CaObjectId)).size;
+  const uniquePermits = new Set(allGroups.map(g => g.p.CaObjectId)).size;
 
   const summary = '<div class="fail-summary">'
-    + '<div class="card-compact"><div class="lbl">Failure incidents</div><div class="val">' + groups.length + '</div></div>'
+    + '<div class="card-compact"><div class="lbl">Failure incidents</div><div class="val">' + allGroups.length + '</div></div>'
     + '<div class="card-compact"><div class="lbl">Still open</div><div class="val" style="color:' + (open.length?'var(--err)':'var(--muted)') + '">' + open.length + '</div></div>'
     + '<div class="card-compact"><div class="lbl">Avg days to pass</div><div class="val">' + (avgDaysToPass==null?'—':avgDaysToPass.toFixed(1)+'d') + '</div></div>'
     + '<div class="card-compact"><div class="lbl">Permits affected</div><div class="val">' + uniquePermits + '</div></div>'
     + '</div>';
 
-  // Group the list by batch so the user can see which batches carry which issues
-  const byBatch = groupByBatch(groups.map(g => ({p:g.p, _g:g})));
+  // Filter toggle: All vs Open only
+  const filterBar =
+      '<div class="seg-toggle" style="margin-bottom:10px">'
+    +   '<button id="fail-view-all"  class="seg-btn '  + (FAIL_VIEW==='all' ?'active':'') + '">All <span class="seg-count">' + allGroups.length + '</span></button>'
+    +   '<button id="fail-view-open" class="seg-btn '  + (FAIL_VIEW==='open'?'active':'') + '">Open only <span class="seg-count">' + open.length + '</span></button>'
+    + '</div>';
+
+  const groups = FAIL_VIEW === 'open' ? open : allGroups;
   let body = '';
-  for (const bg of byBatch){
-    const title = (bg.batch == null) ? 'Unassigned (not in any batch)' : ('Batch ' + bg.batch);
-    const openInBatch = bg.rows.filter(r => !r._g.passed).length;
-    const chipClass = openInBatch ? 'fail' : 'sched';
-    body += '<section class="ms-section">'
-      + '<div class="ms-header"><span class="ms-chip ' + chipClass + '">' + esc(title) + '</span>'
-      +   '<h2>' + bg.rows.length + ' incident' + (bg.rows.length===1?'':'s') + '</h2>'
-      +   (openInBatch ? '<span class="ms-count" style="color:var(--err)">' + openInBatch + ' still open</span>' : '<span class="ms-count" style="color:var(--ok)">all resolved</span>')
-      + '</div>'
-      + bg.rows.map(r => renderFailedGroup(r._g)).join('')
-      + '</section>';
+  if (!groups.length){
+    body = '<div class="empty"><h2 style="color:var(--text)">No matching incidents</h2><p>Nothing in the selected view. Switch to All to see resolved incidents.</p></div>';
+  } else {
+    // Group the list by batch so the user can see which batches carry which issues
+    const byBatch = groupByBatch(groups.map(g => ({p:g.p, _g:g})));
+    for (const bg of byBatch){
+      const title = (bg.batch == null) ? 'Unassigned (not in any batch)' : ('Batch ' + bg.batch);
+      const openInBatch = bg.rows.filter(r => !r._g.passed).length;
+      const chipClass = openInBatch ? 'fail' : 'sched';
+      body += '<section class="ms-section">'
+        + '<div class="ms-header"><span class="ms-chip ' + chipClass + '">' + esc(title) + '</span>'
+        +   '<h2>' + bg.rows.length + ' incident' + (bg.rows.length===1?'':'s') + '</h2>'
+        +   (openInBatch ? '<span class="ms-count" style="color:var(--err)">' + openInBatch + ' still open</span>' : '<span class="ms-count" style="color:var(--ok)">all resolved</span>')
+        + '</div>'
+        + bg.rows.map(r => renderFailedGroup(r._g)).join('')
+        + '</section>';
+    }
   }
 
   // Extra context footer for oldest open incident (if any)
@@ -1197,7 +1232,9 @@ function renderFailed(){
     ? '<div style="color:var(--muted);font-size:12px;margin-top:8px">Oldest open incident: ' + Math.round(maxOpenDays) + ' days since first fail.</div>'
     : '';
 
-  main.innerHTML = summary + body + footer;
+  main.innerHTML = summary + filterBar + body + footer;
+  document.getElementById('fail-view-all' ).onclick = () => { FAIL_VIEW='all';  renderFailed(); };
+  document.getElementById('fail-view-open').onclick = () => { FAIL_VIEW='open'; renderFailed(); };
   applyFilter();
 }
 
@@ -1331,6 +1368,9 @@ function renderThisWeekRow({p,t,when}){
     + '</div>';
 }
 
+// Group view for This Week: 'batch' or 'date'.
+let WEEK_GROUP = 'batch';
+
 function renderThisWeek(){
   const main = document.getElementById('main');
   const rows = collectThisWeek();
@@ -1343,27 +1383,66 @@ function renderThisWeek(){
   }
   const passed = rows.filter(r => statusClass(r.t) === 'done').length;
   const failed = rows.length - passed;
-  let html = '<section class="ms-section"><div class="ms-header"><span class="ms-chip sched">This Week</span>'
+  const filterBar =
+      '<div class="seg-toggle" style="margin-bottom:10px">'
+    +   '<button id="week-grp-batch" class="seg-btn ' + (WEEK_GROUP==='batch'?'active':'') + '">By Batch</button>'
+    +   '<button id="week-grp-date"  class="seg-btn ' + (WEEK_GROUP==='date' ?'active':'') + '">By Date</button>'
+    + '</div>';
+
+  const summaryNote = (WEEK_GROUP === 'batch') ? 'grouped by batch' : 'grouped by date · chronological';
+  let html = filterBar
+    + '<section class="ms-section"><div class="ms-header"><span class="ms-chip sched">This Week</span>'
     + '<h2>' + rows.length + ' inspection' + (rows.length===1?'':'s') + ' completed</h2>'
-    + '<span class="ms-count">(' + range + ' · ' + passed + ' pass / ' + failed + ' fail · grouped by batch)</span></div>';
-  const groups = groupByBatch(rows);
-  for (const g of groups){
-    const title = (g.batch == null) ? 'Unassigned (not in any batch)' : ('Batch ' + g.batch);
-    const passCnt = g.rows.filter(r => statusClass(r.t) === 'done').length;
-    const failCnt = g.rows.length - passCnt;
-    const headerClass = (g.batch == null) ? 'ready' : 'sched';
-    g.rows.sort((a,b) => b.when - a.when);
-    html += '<div style="margin:10px 0 18px">'
-      + '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px"><span class="ms-chip ' + headerClass + '">' + esc(title) + '</span>'
-      +   '<span style="color:var(--muted);font-size:12px">' + g.rows.length + ' inspection' + (g.rows.length===1?'':'s')
-      +   (passCnt?' · <span style="color:var(--ok)">'+passCnt+' pass</span>':'')
-      +   (failCnt?' · <span style="color:var(--err)">'+failCnt+' fail</span>':'')
-      + '</span></div>'
-      + '<div class="insp-list">' + g.rows.map(renderThisWeekRow).join('') + '</div>'
-      + '</div>';
+    + '<span class="ms-count">(' + range + ' · ' + passed + ' pass / ' + failed + ' fail · ' + summaryNote + ')</span></div>';
+
+  if (WEEK_GROUP === 'batch'){
+    const groups = groupByBatch(rows);
+    for (const g of groups){
+      const title = (g.batch == null) ? 'Unassigned (not in any batch)' : ('Batch ' + g.batch);
+      const passCnt = g.rows.filter(r => statusClass(r.t) === 'done').length;
+      const failCnt = g.rows.length - passCnt;
+      const headerClass = (g.batch == null) ? 'ready' : 'sched';
+      g.rows.sort((a,b) => b.when - a.when);
+      html += '<div style="margin:10px 0 18px">'
+        + '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px"><span class="ms-chip ' + headerClass + '">' + esc(title) + '</span>'
+        +   '<span style="color:var(--muted);font-size:12px">' + g.rows.length + ' inspection' + (g.rows.length===1?'':'s')
+        +   (passCnt?' · <span style="color:var(--ok)">'+passCnt+' pass</span>':'')
+        +   (failCnt?' · <span style="color:var(--err)">'+failCnt+' fail</span>':'')
+        + '</span></div>'
+        + '<div class="insp-list">' + g.rows.map(renderThisWeekRow).join('') + '</div>'
+        + '</div>';
+    }
+  } else {
+    // By date — bucket rows into local-day strings, oldest day first within
+    // the week so the user reads the week in chronological order.
+    const byDay = new Map();
+    for (const r of rows){
+      const d = new Date(r.when);
+      const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      if (!byDay.has(key)) byDay.set(key, {date:d, rows:[]});
+      byDay.get(key).rows.push(r);
+    }
+    const days = [...byDay.entries()].sort((a,b) => a[0].localeCompare(b[0]));
+    for (const [key, g] of days){
+      const passCnt = g.rows.filter(r => statusClass(r.t) === 'done').length;
+      const failCnt = g.rows.length - passCnt;
+      const dayLabel = g.date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+      // Within a day, order earliest to latest (chronological).
+      g.rows.sort((a,b) => a.when - b.when);
+      html += '<div style="margin:10px 0 18px">'
+        + '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px"><span class="ms-chip sched">' + esc(dayLabel) + '</span>'
+        +   '<span style="color:var(--muted);font-size:12px">' + g.rows.length + ' inspection' + (g.rows.length===1?'':'s')
+        +   (passCnt?' · <span style="color:var(--ok)">'+passCnt+' pass</span>':'')
+        +   (failCnt?' · <span style="color:var(--err)">'+failCnt+' fail</span>':'')
+        + '</span></div>'
+        + '<div class="insp-list">' + g.rows.map(renderThisWeekRow).join('') + '</div>'
+        + '</div>';
+    }
   }
   html += '</section>';
   main.innerHTML = html;
+  document.getElementById('week-grp-batch').onclick = () => { WEEK_GROUP='batch'; renderThisWeek(); };
+  document.getElementById('week-grp-date' ).onclick = () => { WEEK_GROUP='date';  renderThisWeek(); };
   applyFilter();
 }
 
@@ -1550,6 +1629,21 @@ function renderCycleTimes(){
                   : 'Other';
     if (!groups.has(label)) groups.set(label, []);
     groups.get(label).push(c);
+  }
+  // Sort the Inspections group so the canonical pipeline (T-Pole → Setback →
+  // Rough Plumbing → Foundation → ...) appears first in cycle order, with any
+  // other inspections appearing after, sorted by avg completion date.
+  if (groups.has('Inspections')){
+    const cycleOrder = new Map(DEFAULT_CYCLE_STAGES.map((s,i) => [s.code, i]));
+    groups.set('Inspections', groups.get('Inspections').slice().sort((a,b) => {
+      const ai = cycleOrder.has(a.code) ? cycleOrder.get(a.code) : Infinity;
+      const bi = cycleOrder.has(b.code) ? cycleOrder.get(b.code) : Infinity;
+      if (ai !== bi) return ai - bi;
+      // Both outside the canonical pipeline → fall back to chronological order
+      // (avg completion date), then alphabetical.
+      if (a.avgCompleteMs !== b.avgCompleteMs) return a.avgCompleteMs - b.avgCompleteMs;
+      return a.desc.localeCompare(b.desc);
+    }));
   }
   const groupOrder = ['Inspections', ...[...groups.keys()].filter(k => k !== 'Inspections').sort()];
   const opts = groupOrder.filter(k => groups.has(k)).map(k => {
