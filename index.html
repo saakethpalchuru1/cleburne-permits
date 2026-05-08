@@ -1486,7 +1486,9 @@ function cycleStats(fromCode, toCode, minDays){
 
 // Default pipeline (your build sequence)
 const DEFAULT_CYCLE_STAGES = [
+  {code:'BPEL-TPOLE', label:'T-Pole'},
   {code:'BPB-SETBAC', label:'Setback'},
+  {code:'BPPL-ROUGH', label:'Rough Plumbing'},
   {code:'BPB-FOUNDA', label:'Foundation'},
   {code:'BPB-FRAMIN', label:'Framing'},
   {code:'BPB-INSULA', label:'Insulation'},
