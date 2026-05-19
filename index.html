@@ -134,6 +134,17 @@
   .wf-dot.available{background:var(--warn);border-color:var(--warn)}
   .wf-dot.optional{background:#1e293b;border-color:#475569;border-style:dashed}
   .wf-step.optional .wf-label{color:#94a3b8;font-style:italic}
+  /* Partial pass — inspector approved part of the inspection; still needs another visit. */
+  .wf-dot.partial{background:#f59e0b;border-color:#fbbf24;background-image:linear-gradient(135deg,#10b981 0 50%,#f59e0b 50% 100%)}
+  .wf-step.partial .wf-label{color:#fbbf24}
+  .wf-step.partial + .wf-step::before{background:var(--border)}
+  /* Blocked — review/intake came back with INCOMPLETE; user action required. */
+  .wf-dot.blocked{background:#9333ea;border-color:#a855f7}
+  .wf-step.blocked .wf-label{color:#d8b4fe}
+  .wf-step.blocked + .wf-step::before{background:var(--border)}
+  /* Small note marker shown on the top-right of a dot when the inspector
+     left a comment / "Pass w/ Note" / etc. */
+  .wf-note-pip{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#fbbf24;border:1.5px solid var(--panel2);color:#111;font-size:8px;line-height:8px;font-weight:700;display:flex;align-items:center;justify-content:center;pointer-events:none}
   .wf-label{font-size:9px;color:var(--muted);text-align:center;margin-top:4px;line-height:1.15;max-width:70px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .wf-date{font-size:8px;color:var(--muted);margin-top:1px}
   .wf-step.done .wf-label{color:#86efac}
@@ -196,6 +207,7 @@
   .attempt{padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:#020617}
   .attempt.fail{border-left:2px solid var(--err)}
   .attempt.pass{border-left:2px solid var(--ok)}
+  .attempt.partial{border-left:2px solid #f59e0b}
   .attempt.pending{border-left:2px solid var(--warn);border-style:dashed}
   .seg-toggle{display:inline-flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--panel)}
   .seg-toggle .seg-btn{background:transparent;color:var(--muted);border:none;padding:6px 12px;cursor:pointer;font-size:12.5px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
@@ -244,6 +256,7 @@
     <button id="tab-failed">Failed Inspections <span class="count" id="cnt-failed">0</span></button>
     <button id="tab-scheduled">Scheduled <span class="count" id="cnt-sched">0</span></button>
     <button id="tab-thisweek">This Week <span class="count" id="cnt-week">0</span></button>
+    <button id="tab-notes">Notes &amp; Flags <span class="count" id="cnt-notes">0</span></button>
     <button id="tab-reviews">Review Progress <span class="count" id="cnt-reviews">0</span></button>
     <button id="tab-cycle">Cycle Times</button>
   </div>
@@ -648,15 +661,27 @@ function isOptionalCode(code){ return OPTIONAL_INSPECTION_CODES.has(code); }
 function statusClass(t){
   if (!t) return 'pending';
   if (getCompleteFlag(t) === 'Y'){
-    const rc = getResultCode(t), rd = getResultDisplay(t).toUpperCase();
-    if (/REJECT|DENY|DENIED|FAIL|NO\s*SHOW/.test(rc) || /REJECT|DENY|DENIED|FAIL|NO\s*SHOW/.test(rd)) return 'rejected';
+    if (isFail(t)) return 'rejected';
+    if (isPartialPass(t)) return 'partial';
+    if (isIncomplete(t)) return 'blocked';
+    // PASS and PASSWNOTE both fall through to 'done' — the note marker is
+    // rendered separately, so both still register as "this step is OK to
+    // move past." Use hasInspectorNote(t) elsewhere to surface the note.
     return 'done';
   }
-  // Incomplete optional inspections render as neutral (not yellow), since the
-  // crew isn't necessarily expecting to do them.
   if (t.TaskCode && isOptionalCode(t.TaskCode)) return 'optional';
   if (getAvailFlag(t) === 'Y') return 'available';
   return 'pending';
+}
+
+// Whether a task has an inspector note worth surfacing. Triggers a small
+// marker on the workflow tile. Captures the Cityworks "Pass w/ Note" result,
+// partial passes (which almost always carry a note), and any task with
+// non-empty comments left by inspectors.
+function hasInspectorNote(t){
+  if (!t) return false;
+  if (isPassWithNote(t) || isPartialPass(t) || isIncomplete(t)) return true;
+  return Array.isArray(t.Comments) && t.Comments.some(c => c && c.text && c.text.trim().length);
 }
 
 function isInspection(t){
@@ -673,7 +698,41 @@ function isInspection(t){
 function isFail(t){
   if (getCompleteFlag(t) !== 'Y') return false;
   const rc = getResultCode(t), rd = getResultDisplay(t).toUpperCase();
-  return /REJECT|DENY|DENIED|FAIL|NO\s*SHOW/.test(rc) || /REJECT|DENY|DENIED|FAIL|NO\s*SHOW/.test(rd);
+  // Strict fail/reject only — NOT partial pass or incomplete.
+  return /^(FAIL|REJECT|DENY|DENIED|NO\s*SHOW)$/.test(rc) || /^(FAIL|REJECT|DENY|DENIED|NO\s*SHOW)$/.test(rd);
+}
+
+// "Partial Pass" — inspector approved part of the inspection but the rest
+// still needs another visit. Counts as not-yet-passing-the-gate.
+function isPartialPass(t){
+  if (getCompleteFlag(t) !== 'Y') return false;
+  if (getResultCode(t) === 'PARTPASS') return true;
+  return /PARTIAL\s*PASS/i.test(getResultDisplay(t));
+}
+
+// "Incomplete" — review task marked complete in Cityworks, but with a
+// blocking comment telling you to do something (submit docs, etc.).
+function isIncomplete(t){
+  if (getCompleteFlag(t) !== 'Y') return false;
+  if (getResultCode(t) === 'INCOMPLETE') return true;
+  return /^INCOMPLETE$/i.test(getResultDisplay(t));
+}
+
+// "Pass with Note" — passed but inspector left a punch-list note.
+function isPassWithNote(t){
+  if (getCompleteFlag(t) !== 'Y') return false;
+  if (getResultCode(t) === 'PASSWNOTE') return true;
+  return /PASS\s*W\/?\s*NOTE/i.test(getResultDisplay(t));
+}
+
+// Anything the user needs to look at: hard fail OR partial pass OR
+// blocked review.
+function isBlocking(t){ return isFail(t) || isPartialPass(t) || isIncomplete(t); }
+
+// "Has this step actually opened the gate to the next step?" Pass and
+// Pass-with-Note both count; Partial / Incomplete / Fail do not.
+function passesGate(t){
+  return getCompleteFlag(t) === 'Y' && !isFail(t) && !isPartialPass(t) && !isIncomplete(t);
 }
 
 function inspector(t){
@@ -764,12 +823,24 @@ function workflowHtml(tasks){
           const date = done ? shortDate(done) : shortDate(target);
           const desc = getTaskDesc(t);
           const rd = getResultDisplay(t);
+          // Pull a short preview of any inspector comments so it shows in the
+          // tile's hover tooltip without needing to dig in to the failed-tab.
+          const notes = getComments(t).filter(c => c && c.text);
+          const noteText = notes.length
+            ? notes.map(c => (c.by?c.by+': ':'') + c.text).join(' || ')
+            : '';
           const tip = desc
             + (rd?' — '+rd:'')
             + (target?' | Target '+shortDate(target):'')
-            + (done?' | Completed '+shortDate(done):'');
+            + (done?' | Completed '+shortDate(done):'')
+            + (noteText ? ' | Note: ' + noteText : '');
+          // Small marker shown on top-right of the dot when there's an
+          // inspector note worth reading.
+          const showNote = hasInspectorNote(t);
           return '<div class="wf-step ' + cls + '">'
-            + '<div class="wf-dot ' + cls + '" title="' + esc(tip) + '">' + (i+1) + '</div>'
+            + '<div class="wf-dot ' + cls + '" title="' + esc(tip) + '">' + (i+1)
+            +   (showNote ? '<span class="wf-note-pip" aria-label="Has note">!</span>' : '')
+            + '</div>'
             + '<div class="wf-label">' + esc(desc) + '</div>'
             + '<div class="wf-date">' + date + '</div>'
             + '</div>';
@@ -1030,13 +1101,15 @@ function renderAll(){
 }
 
 // ---------- Failed inspections ----------
-// Kept for backward-compat / count badge: just the list of failed task rows.
+// Kept for backward-compat / count badge: every blocking inspection row
+// (FAIL or PARTIAL PASS). Partial pass needs the remaining items re-inspected,
+// so it belongs in this surface area.
 function collectFailed(){
   const out = [];
   for (const p of allPermits()){
     for (const t of (p.Tasks||[])){
       if (!isInspection(t)) continue;
-      if (!isFail(t)) continue;
+      if (!isFail(t) && !isPartialPass(t)) continue;
       out.push({p, t});
     }
   }
@@ -1044,7 +1117,7 @@ function collectFailed(){
 }
 
 // Failure history grouped by (permit, TaskCode): every sequence of attempts
-// for an inspection type that had at least one failure.
+// for an inspection type that had at least one failure OR partial pass.
 function failureHistory(){
   const out = [];
   for (const p of allPermits()){
@@ -1057,14 +1130,21 @@ function failureHistory(){
       byCode.get(c).push(t);
     }
     for (const [code, tasks] of byCode){
-      if (!tasks.some(isFail)) continue;
+      // An inspection sequence enters this surface if it contains a hard fail
+      // OR a partial pass — both mean follow-up work.
+      if (!tasks.some(t => isFail(t) || isPartialPass(t))) continue;
       const completed = tasks
         .filter(t => getCompleteFlag(t) === 'Y' && getCompleteDate(t))
         .sort((a,b) => new Date(getCompleteDate(a)) - new Date(getCompleteDate(b)));
-      const firstFail = completed.find(isFail);
-      const passedAfterFail = firstFail
-        ? completed.find(t => !isFail(t) && new Date(getCompleteDate(t)) > new Date(getCompleteDate(firstFail)))
+      // "First issue" is the first FAIL or PARTPASS — both kinds open the cycle.
+      const firstIssue = completed.find(t => isFail(t) || isPartialPass(t));
+      // "Resolved" means a subsequent FULL pass — not another partial.
+      const passedAfterFail = firstIssue
+        ? completed.find(t => passesGate(t) && new Date(getCompleteDate(t)) > new Date(getCompleteDate(firstIssue)))
         : null;
+      // Carry firstFail through as the earliest issue so the rest of the
+      // code (which references `firstFail`) doesn't need to change.
+      const firstFail = firstIssue;
       const pending = tasks
         .filter(t => getCompleteFlag(t) !== 'Y')
         .sort((a,b) => new Date(getTargetDate(a)||0) - new Date(getTargetDate(b)||0));
@@ -1073,6 +1153,13 @@ function failureHistory(){
       const daysToPass = (firstFailDate && passDate) ? (passDate - firstFailDate)/86400000 : null;
       const daysOpen = (firstFailDate && !passDate) ? (Date.now() - firstFailDate)/86400000 : null;
       const failCount = completed.filter(isFail).length;
+      const partialCount = completed.filter(isPartialPass).length;
+      // Kind of the first issue dictates badge styling for the group.
+      const firstKind = firstIssue
+        ? (isFail(firstIssue) ? 'fail' : isPartialPass(firstIssue) ? 'partial' : 'fail')
+        : 'fail';
+      // Open if there's no subsequent FULL pass and there's still a fail/partial
+      // somewhere in the history — i.e., the inspector hasn't blessed the work.
       out.push({
         p, code,
         taskDesc: getTaskDesc(firstFail || tasks[0]) || code,
@@ -1081,7 +1168,7 @@ function failureHistory(){
         passed: !!passDate,
         firstFailDate, passDate,
         daysToPass, daysOpen,
-        failCount,
+        failCount, partialCount, firstKind,
         milestone: msOf(firstFail || tasks[0])
       });
     }
@@ -1127,7 +1214,9 @@ function groupByBatch(rows){
 }
 
 function renderFailureAttempt(t, idx){
-  const failed = isFail(t);
+  const failed   = isFail(t);
+  const partial  = isPartialPass(t);
+  const noteOnly = isPassWithNote(t);
   const rd = getResultDisplay(t);
   const d = shortDate(getCompleteDate(t));
   const notes = getComments(t).filter(c => c && c.text);
@@ -1138,13 +1227,23 @@ function renderFailureAttempt(t, idx){
         + esc(c.text) + '</div>'
       )).join('') + '</div>'
     : '';
-  const pillStyle = failed ? '' : 'background:#052e1a;color:#86efac;border-color:#166534';
-  const pillClass = failed ? 'pill danger' : 'pill';
+  // Pill style varies by result kind.
+  let pillStyle, pillClass;
+  if (failed){
+    pillStyle = '';                                                        pillClass = 'pill danger';
+  } else if (partial){
+    pillStyle = 'background:#3a2a05;color:#fbbf24;border-color:#92400e';   pillClass = 'pill';
+  } else if (noteOnly){
+    pillStyle = 'background:#052e1a;color:#86efac;border-color:#166534';   pillClass = 'pill';
+  } else {
+    pillStyle = 'background:#052e1a;color:#86efac;border-color:#166534';   pillClass = 'pill';
+  }
+  const kindCls  = failed ? 'fail' : partial ? 'partial' : 'pass';
   const reins = t.IsReinspection==='Y' ? ' <span class="pill reins">Reinspection</span>' : '';
-  return '<div class="attempt ' + (failed?'fail':'pass') + '">'
+  return '<div class="attempt ' + kindCls + '">'
     + '<div class="attempt-hdr">'
     +   '<span class="attempt-num">Attempt ' + (idx+1) + '</span>'
-    +   '<span class="' + pillClass + '" style="' + pillStyle + '">' + esc(rd || (failed?'FAIL':'PASS')) + '</span>'
+    +   '<span class="' + pillClass + '" style="' + pillStyle + '">' + esc(rd || (failed?'FAIL':partial?'PARTIAL PASS':'PASS')) + '</span>'
     +   reins
     +   '<span class="attempt-date">' + (d||'—') + '</span>'
     +   (inspector(t) ? '<span class="attempt-meta">Inspector: <b>' + esc(inspector(t)) + '</b></span>' : '')
@@ -1173,22 +1272,31 @@ function renderFailedGroup(g){
   const attemptsHtml = g.attempts.map((t,i) => renderFailureAttempt(t,i)).join('');
   // Only show "awaiting reinspection" if still open, i.e. not yet passed
   const pendingHtml = !g.passed && g.pending.length ? renderPendingReinspection(g.pending[0]) : '';
+  const issueWord = (g.firstKind === 'partial' && g.failCount === 0) ? 'partial pass' : 'first issue';
   const statusBanner = g.passed
     ? '<span class="status-tag ok">Resolved · ' + g.daysToPass.toFixed(1) + ' days to pass</span>'
-    : '<span class="status-tag err">Open · ' + Math.round(g.daysOpen) + ' days since first fail</span>';
+    : '<span class="status-tag err">Open · ' + Math.round(g.daysOpen) + ' days since ' + issueWord + '</span>';
   const batch = batchOfPermit(g.p);
   const batchChip = batch != null
     ? '<span class="pill" style="margin-left:6px">Batch ' + esc(batch) + '</span>'
     : '';
+  // Pill summarizing what kind of issue this is.
+  let kindChip = '';
+  if (g.failCount && g.partialCount){
+    kindChip = '<span class="pill danger" style="margin-left:6px">' + g.failCount + ' fail / ' + g.partialCount + ' partial</span>';
+  } else if (g.failCount){
+    kindChip = '<span class="pill danger" style="margin-left:6px">' + g.failCount + ' fail</span>';
+  } else if (g.partialCount){
+    kindChip = '<span class="pill" style="margin-left:6px;background:#3a2a05;color:#fbbf24;border-color:#92400e">' + g.partialCount + ' partial pass</span>';
+  }
   const search = (getAddr(g.p) + ' ' + g.taskDesc + ' ' + g.attempts.map(t => inspector(t)).join(' ')).toLowerCase();
   return '<div class="fail-group ' + (g.passed?'resolved':'') + '" data-search="' + esc(search) + '">'
     + '<div class="fail-group-hdr">'
     +   '<div style="flex:1 1 320px">'
-    +     '<div class="fail-task">' + esc(g.taskDesc) + batchChip + '</div>'
+    +     '<div class="fail-task">' + esc(g.taskDesc) + batchChip + kindChip + '</div>'
     +     '<div class="fail-sub">'
     +       '<a href="' + esc(permitUrl(g.p)) + '" target="_blank" rel="noopener">' + esc(addr||'—') + '</a>'
-    +       ' · ' + g.failCount + ' failure' + (g.failCount===1?'':'s')
-    +       (g.firstFailDate ? ' · first failed ' + shortDate(g.firstFailDate) : '')
+    +       (g.firstFailDate ? ' · first issue ' + shortDate(g.firstFailDate) : '')
     +     '</div>'
     +   '</div>'
     +   '<div>' + statusBanner + '</div>'
@@ -1470,14 +1578,191 @@ function renderThisWeek(){
   applyFilter();
 }
 
+// ---------- Notes & Flags ----------
+// Surfaces the three statuses we previously rendered as silent green passes:
+//   - PASSWNOTE: pass, but inspector left a note (continue but read)
+//   - PARTPASS:  partial pass, follow-up still required
+//   - INCOMPLETE: review marked done but with a blocking comment to your team
+// Each row carries the inspector comments so users get every detail.
+function collectNotesAndFlags(){
+  const out = [];
+  for (const p of allPermits()){
+    // Group by code so we can detect whether a subsequent task resolved an
+    // open item.
+    const byCode = new Map();
+    for (const t of (p.Tasks||[])){
+      const c = t.TaskCode || '';
+      if (!c) continue;
+      if (!byCode.has(c)) byCode.set(c, []);
+      byCode.get(c).push(t);
+    }
+    for (const t of (p.Tasks||[])){
+      let kind = null;
+      if (isPassWithNote(t))      kind = 'passnote';
+      else if (isPartialPass(t))  kind = 'partial';
+      else if (isIncomplete(t))   kind = 'incomplete';
+      if (!kind) continue;
+      const code = t.TaskCode || '';
+      const completedAfter = (byCode.get(code) || []).filter(o =>
+        o !== t &&
+        passesGate(o) &&
+        getCompleteDate(o) &&
+        new Date(getCompleteDate(o)) > new Date(getCompleteDate(t) || 0)
+      );
+      const resolved = completedAfter.length > 0;
+      out.push({ p, t, kind, resolved, when: getCompleteDate(t) ? new Date(getCompleteDate(t)) : null });
+    }
+  }
+  // Open first, oldest first within each.
+  out.sort((a,b) => {
+    if (a.resolved !== b.resolved) return a.resolved ? 1 : -1;
+    if (!a.when) return 1; if (!b.when) return -1;
+    if (a.resolved) return b.when - a.when; // resolved: newest first
+    return a.when - b.when;                 // open: oldest first (most stale at top)
+  });
+  return out;
+}
+
+let NOTES_VIEW = 'open'; // 'open' | 'all'
+let NOTES_KIND = 'all';  // 'all' | 'incomplete' | 'partial' | 'passnote'
+
+function renderNotes(){
+  const main = document.getElementById('main');
+  const all = collectNotesAndFlags();
+  if (!all.length){
+    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No inspector notes or flags</h2><p>Nothing currently marked Partial Pass, Pass w/ Note, or Incomplete.</p></div>';
+    return;
+  }
+  const byKind = {
+    passnote:   all.filter(r => r.kind === 'passnote'),
+    partial:    all.filter(r => r.kind === 'partial'),
+    incomplete: all.filter(r => r.kind === 'incomplete'),
+  };
+  const openCount = all.filter(r => !r.resolved).length;
+
+  const summary =
+      '<div class="fail-summary">'
+    +   '<div class="card-compact"><div class="lbl">Total notes &amp; flags</div><div class="val">' + all.length + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Still open</div><div class="val" style="color:' + (openCount?'var(--err)':'var(--muted)') + '">' + openCount + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Partial passes</div><div class="val" style="color:#fbbf24">' + byKind.partial.length + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Blocked intakes</div><div class="val" style="color:#d8b4fe">' + byKind.incomplete.length + '</div></div>'
+    + '</div>';
+
+  // View toggle (Open vs All) and a kind filter row.
+  const viewBar =
+      '<div class="seg-toggle" style="margin-bottom:8px">'
+    +   '<button id="notes-view-open" class="seg-btn ' + (NOTES_VIEW==='open'?'active':'') + '">Open <span class="seg-count">' + openCount + '</span></button>'
+    +   '<button id="notes-view-all"  class="seg-btn ' + (NOTES_VIEW==='all' ?'active':'') + '">All <span class="seg-count">' + all.length + '</span></button>'
+    + '</div>';
+
+  const kindBar =
+      '<div class="seg-toggle" style="margin-bottom:14px">'
+    +   '<button id="notes-kind-all"        class="seg-btn ' + (NOTES_KIND==='all'       ?'active':'') + '">All kinds</button>'
+    +   '<button id="notes-kind-incomplete" class="seg-btn ' + (NOTES_KIND==='incomplete'?'active':'') + '">Blocked intake <span class="seg-count">' + byKind.incomplete.length + '</span></button>'
+    +   '<button id="notes-kind-partial"    class="seg-btn ' + (NOTES_KIND==='partial'   ?'active':'') + '">Partial pass <span class="seg-count">' + byKind.partial.length + '</span></button>'
+    +   '<button id="notes-kind-passnote"   class="seg-btn ' + (NOTES_KIND==='passnote'  ?'active':'') + '">Pass w/ note <span class="seg-count">' + byKind.passnote.length + '</span></button>'
+    + '</div>';
+
+  // Filter
+  let rows = all;
+  if (NOTES_VIEW === 'open') rows = rows.filter(r => !r.resolved);
+  if (NOTES_KIND !== 'all')  rows = rows.filter(r => r.kind === NOTES_KIND);
+
+  // Build cards
+  function kindLabel(k){
+    return k === 'passnote' ? 'Pass w/ Note'
+      :    k === 'partial'  ? 'Partial Pass'
+      :    k === 'incomplete' ? 'Incomplete'
+      :    k;
+  }
+  function renderRow(r){
+    const { p, t, kind, resolved } = r;
+    const addr = streetAddr(p);
+    const dt = getCompleteDate(t) ? shortDate(getCompleteDate(t)) : '—';
+    const insp = inspector(t) || '';
+    const comments = getComments(t).filter(c => c && c.text);
+    const commentsHtml = comments.length
+      ? '<div class="attempt-notes" style="margin-top:6px">' + comments.map(c => (
+          '<div><span style="font-weight:600;color:#e2e8f0">' + esc(c.by||'—') + '</span> '
+          + '<span style="color:var(--muted);font-size:11px">' + esc(shortDateTime(c.date)) + '</span><br/>'
+          + esc(c.text) + '</div>'
+        )).join('') + '</div>'
+      : '<div style="color:var(--muted);font-size:12px;margin-top:4px">(No comment text in record.)</div>';
+    const kindCls = kind === 'incomplete' ? 'blocked' : kind === 'partial' ? 'partial' : 'note';
+    const kindBgStyle =
+        kind === 'partial'    ? 'background:#3a2a05;color:#fbbf24;border-color:#92400e' :
+        kind === 'incomplete' ? 'background:#2a1245;color:#d8b4fe;border-color:#7e22ce' :
+                                'background:#052e1a;color:#86efac;border-color:#166534';
+    const batch = batchOfPermit(p);
+    const batchChip = batch != null
+      ? '<span class="pill" style="margin-left:6px">Batch ' + esc(batch) + '</span>'
+      : '';
+    const resolvedTag = resolved
+      ? '<span class="status-tag ok">Resolved by later pass</span>'
+      : '<span class="status-tag err">Open</span>';
+    const search = (getAddr(p) + ' ' + getTaskDesc(t) + ' ' + insp + ' ' + comments.map(c => c.text).join(' ')).toLowerCase();
+    return ''
+      + '<div class="fail-group ' + (resolved?'resolved':'') + '" data-search="' + esc(search) + '">'
+      +   '<div class="fail-group-hdr">'
+      +     '<div style="flex:1 1 320px">'
+      +       '<div class="fail-task">' + esc(getTaskDesc(t) || t.TaskCode || '') + batchChip
+      +         '<span class="pill" style="margin-left:6px;' + kindBgStyle + '">' + kindLabel(kind) + '</span>'
+      +       '</div>'
+      +       '<div class="fail-sub">'
+      +         '<a href="' + esc(permitUrl(p)) + '" target="_blank" rel="noopener">' + esc(addr||'—') + '</a>'
+      +         ' · ' + esc(dt)
+      +         (insp ? ' · Inspector: <b>' + esc(insp) + '</b>' : '')
+      +       '</div>'
+      +     '</div>'
+      +     '<div>' + resolvedTag + '</div>'
+      +   '</div>'
+      +   '<div class="fail-group-body">' + commentsHtml + '</div>'
+      + '</div>';
+  }
+
+  let body = '';
+  if (!rows.length){
+    body = '<div class="empty"><h2 style="color:var(--text)">Nothing matches</h2><p>Switch filters above to widen the view.</p></div>';
+  } else {
+    // Group by kind for legibility, in priority order: blocked → partial → notes.
+    const order = ['incomplete','partial','passnote'];
+    for (const k of order){
+      const group = rows.filter(r => r.kind === k);
+      if (!group.length) continue;
+      const label = kindLabel(k);
+      const desc =
+          k === 'incomplete' ? 'Reviews marked complete in Cityworks but with blocking instructions from city staff.'
+        : k === 'partial'    ? 'Inspector approved part of the inspection. Remaining items still need a follow-up visit.'
+        :                      'Passed — but inspector left a punch list. Read and address before subsequent inspections.';
+      body += '<section class="ms-section">'
+        +   '<div class="ms-header"><span class="ms-chip ' + (k==='incomplete'?'fail':k==='partial'?'sched':'ready') + '">' + esc(label) + '</span>'
+        +     '<h2>' + group.length + ' item' + (group.length===1?'':'s') + '</h2>'
+        +     '<span class="ms-count">' + esc(desc) + '</span>'
+        +   '</div>'
+        +   group.map(renderRow).join('')
+        + '</section>';
+    }
+  }
+
+  main.innerHTML = summary + viewBar + kindBar + body;
+  document.getElementById('notes-view-open').onclick = () => { NOTES_VIEW='open'; renderNotes(); };
+  document.getElementById('notes-view-all' ).onclick = () => { NOTES_VIEW='all';  renderNotes(); };
+  document.getElementById('notes-kind-all'       ).onclick = () => { NOTES_KIND='all';        renderNotes(); };
+  document.getElementById('notes-kind-incomplete').onclick = () => { NOTES_KIND='incomplete'; renderNotes(); };
+  document.getElementById('notes-kind-partial'   ).onclick = () => { NOTES_KIND='partial';    renderNotes(); };
+  document.getElementById('notes-kind-passnote'  ).onclick = () => { NOTES_KIND='passnote';   renderNotes(); };
+  applyFilter();
+}
+
 // ---------- Cycle Times ----------
 // Latest passing completion date for a given TaskCode within a permit.
+// Only "true" passes count — partial passes and incomplete reviews still
+// need follow-up and should NOT unlock the downstream step.
 function latestPassingDate(permit, code){
   let best = null;
   for (const t of (permit.Tasks||[])){
     if (t.TaskCode !== code) continue;
-    if (getCompleteFlag(t) !== 'Y') continue;
-    if (isFail(t)) continue;
+    if (!passesGate(t)) continue;
     const d = getCompleteDate(t);
     if (!d) continue;
     const dt = new Date(d);
@@ -1532,7 +1817,7 @@ function discoverAllTaskCodes(){
       if (!code) continue;
       const prev = sampleByCode.get(code);
       if (!prev || getTaskDesc(t).length > getTaskDesc(prev).length) sampleByCode.set(code, t);
-      if (getCompleteFlag(t) === 'Y' && !isFail(t)) passedCodes.add(code);
+      if (passesGate(t)) passedCodes.add(code);
     }
     for (const [code, sampleT] of sampleByCode){
       const rec = ensure(code, sampleT);
@@ -1967,8 +2252,9 @@ function collectReviewActivity(){
     for (const t of (p.Tasks||[])){
       if (isInspection(t)) continue;
       if (getTaskTypeRaw(t) !== 'REVIEW') continue;
-      if (getCompleteFlag(t) !== 'Y') continue;
-      if (isFail(t)) continue;
+      // Only count true completions — INCOMPLETE reviews are blocking, not
+      // progress, and shouldn't count toward day-by-day review activity.
+      if (!passesGate(t)) continue;
       const d = getCompleteDate(t);
       if (!d) continue;
       const code = t.TaskCode || '';
@@ -2254,6 +2540,7 @@ function render(){
     document.getElementById('cnt-failed').textContent = '0';
     document.getElementById('cnt-sched').textContent = '0';
     document.getElementById('cnt-week').textContent = '0';
+    document.getElementById('cnt-notes').textContent = '0';
     document.getElementById('cnt-reviews').textContent = '0';
     return;
   }
@@ -2285,6 +2572,7 @@ function render(){
   document.getElementById('cnt-failed').textContent = collectFailed().length;
   document.getElementById('cnt-sched').textContent = collectScheduled().length;
   document.getElementById('cnt-week').textContent = collectThisWeek().length;
+  document.getElementById('cnt-notes').textContent = collectNotesAndFlags().length;
   document.getElementById('cnt-reviews').textContent = inReviewPermits().length;
 
   if (VIEW === 'batches') renderBatches();
@@ -2292,6 +2580,7 @@ function render(){
   else if (VIEW === 'failed') renderFailed();
   else if (VIEW === 'scheduled') renderScheduled();
   else if (VIEW === 'thisweek') renderThisWeek();
+  else if (VIEW === 'notes') renderNotes();
   else if (VIEW === 'reviews') renderReviews();
   else if (VIEW === 'cycle') renderCycleTimes();
 }
@@ -2313,7 +2602,7 @@ function applyFilter(){
 
 function setTab(name){
   VIEW = name;
-  ['batches','all','failed','scheduled','thisweek','reviews','cycle'].forEach(n => {
+  ['batches','all','failed','scheduled','thisweek','notes','reviews','cycle'].forEach(n => {
     const b = document.getElementById('tab-' + n);
     if (b) b.classList.toggle('active', n === name);
   });
@@ -2376,6 +2665,7 @@ document.getElementById('tab-all').onclick      = () => setTab('all');
 document.getElementById('tab-failed').onclick   = () => setTab('failed');
 document.getElementById('tab-scheduled').onclick= () => setTab('scheduled');
 document.getElementById('tab-thisweek').onclick = () => setTab('thisweek');
+document.getElementById('tab-notes').onclick    = () => setTab('notes');
 document.getElementById('tab-reviews').onclick  = () => setTab('reviews');
 document.getElementById('tab-cycle').onclick    = () => setTab('cycle');
 document.getElementById('search').addEventListener('input', applyFilter);
