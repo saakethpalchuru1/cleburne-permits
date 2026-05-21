@@ -25,6 +25,53 @@ if (!USERNAME || !PASSWORD) {
 const DEBUG_DIR = path.join(__dirname, '..', 'debug');
 fs.mkdirSync(DEBUG_DIR, { recursive: true });
 
+// ---- Optional: push data/latest.json to GitHub via the Contents API ----
+// Enabled when both env vars are set (e.g. on Render). GitHub Actions doesn't
+// set these, so it keeps using its built-in `git commit` step.
+async function pushToGitHub(payload) {
+  const token  = process.env.GITHUB_TOKEN;
+  const repo   = process.env.GITHUB_REPO;      // 'owner/name'
+  const branch = process.env.GITHUB_BRANCH || 'main';
+  const file   = process.env.GITHUB_FILE_PATH || 'data/latest.json';
+  if (!token || !repo) return false;
+
+  const apiUrl = `https://api.github.com/repos/${repo}/contents/${file}`;
+  const hdrs = {
+    'Authorization': `Bearer ${token}`,
+    'Accept': 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'User-Agent': 'cleburne-permits-refresher',
+  };
+
+  // GET current SHA so the PUT can replace the existing file.
+  let sha = null;
+  const getResp = await fetch(`${apiUrl}?ref=${encodeURIComponent(branch)}`, { headers: hdrs });
+  if (getResp.ok) {
+    const cur = await getResp.json();
+    sha = cur && cur.sha;
+  } else if (getResp.status !== 404) {
+    throw new Error(`GitHub GET ${getResp.status}: ${await getResp.text()}`);
+  }
+
+  const body = {
+    message: `chore: refresh permits data (${new Date().toISOString()})`,
+    content: Buffer.from(JSON.stringify(payload)).toString('base64'),
+    branch,
+  };
+  if (sha) body.sha = sha;
+
+  const putResp = await fetch(apiUrl, {
+    method: 'PUT',
+    headers: { ...hdrs, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!putResp.ok) {
+    throw new Error(`GitHub PUT ${putResp.status}: ${await putResp.text()}`);
+  }
+  console.log(`Pushed ${file} to ${repo}@${branch}`);
+  return true;
+}
+
 async function dumpDebug(page, tag) {
   try {
     const png = path.join(DEBUG_DIR, `${tag}.png`);
@@ -395,6 +442,16 @@ async function dumpDebug(page, tag) {
   console.log(`Wrote ${outPath}`);
 
   await browser.close();
+
+  // ---- Step 4: If GITHUB_TOKEN + GITHUB_REPO are set, push the new JSON
+  //              to GitHub via the Contents API (used on Render). ----
+  try {
+    const pushed = await pushToGitHub(data);
+    if (!pushed) console.log('[skip] GITHUB_TOKEN/GITHUB_REPO not set — local-only write.');
+  } catch (e) {
+    console.error('GitHub push failed:', e.message);
+    process.exit(1);
+  }
 })().catch(err => {
   console.error('Refresh failed:', err);
   process.exit(1);
