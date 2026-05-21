@@ -1,0 +1,7 @@
+.git
+.github
+data
+debug
+node_modules
+index.html
+*.md
