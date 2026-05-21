@@ -4,6 +4,6 @@
   "private": true,
   "description": "Scheduled fetcher for Cityworks PublicAccess permit data.",
   "dependencies": {
-    "playwright": "^1.49.0"
+    "playwright": "1.49.0"
   }
 }
