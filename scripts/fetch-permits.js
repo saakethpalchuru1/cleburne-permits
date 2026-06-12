@@ -346,7 +346,7 @@ async function dumpDebug(page, tag) {
 
     const CONC = 4;
     const idx = { n: 0 };
-    let mergedTPole = 0, mergedRough = 0, missingPlumb = 0, missingElec = 0;
+    let mergedTPole = 0, mergedRough = 0, mergedElecRel = 0, missingPlumb = 0, missingElec = 0;
 
     async function worker() {
       while (true) {
@@ -392,6 +392,26 @@ async function dumpDebug(page, tag) {
               ], tpoles);
               mergedTPole += tpoles.length;
             }
+            // Electric Release rows from the matched electrical sub-permit.
+            const elecRel = subTasks
+              .filter(t => t.TaskCode === 'BPEL-ELECR')
+              .map(t => {
+                const o = tidyTask(t);
+                o._fromCaObjectId = eid;
+                o._fromCaseSubType = 'BPELECTRIC';
+                return o;
+              });
+            if (elecRel.length){
+              // Electric Release goes right after the LAST Paving Inspection
+              // (so it lands after any reinspection attempts), with the
+              // Miscellaneous Inspection anchor as a safety net.
+              injectAt(p.Tasks, [
+                { afterLast: 'BPEN-PAVIN' },
+                { beforeFirst: 'BPB-MISCIN' },
+                { beforeFirst: 'BPB-FINAL' },
+              ], elecRel);
+              mergedElecRel += elecRel.length;
+            }
           }
 
           // Rough Plumbing rows from the matched plumbing sub-permit.
@@ -429,7 +449,7 @@ async function dumpDebug(page, tag) {
     return {
       generated: Date.now(),
       permits: residential,
-      _stats: { mergedTPole, mergedRough, missingPlumb, missingElec, total: residential.length },
+      _stats: { mergedTPole, mergedRough, mergedElecRel, missingPlumb, missingElec, total: residential.length },
     };
   });
 
