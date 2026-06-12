@@ -135,9 +135,14 @@
   .wf-dot.optional{background:#1e293b;border-color:#475569;border-style:dashed}
   .wf-step.optional .wf-label{color:#94a3b8;font-style:italic}
   /* Partial pass — inspector approved part of the inspection; still needs another visit. */
-  .wf-dot.partial{background:#f59e0b;border-color:#fbbf24;background-image:linear-gradient(135deg,#10b981 0 50%,#f59e0b 50% 100%)}
-  .wf-step.partial .wf-label{color:#fbbf24}
-  .wf-step.partial + .wf-step::before{background:var(--border)}
+  /* Partial pass = "tentatively done" until Paving signs off. Reads as
+     green (completed) but with a subtle diagonal-stripe texture so it's
+     visually distinguishable from a clean PASS. Once Paving releases the
+     permit, statusClass flips to 'done' and the tile becomes uniform green. */
+  .wf-dot.partial{background:#10b981;border-color:#34d399;
+    background-image:repeating-linear-gradient(135deg, rgba(255,255,255,0.22) 0 3px, transparent 3px 7px)}
+  .wf-step.partial .wf-label{color:#86efac}
+  .wf-step.partial + .wf-step::before{background:var(--ok)}
   /* Blocked — review/intake came back with INCOMPLETE; user action required. */
   .wf-dot.blocked{background:#9333ea;border-color:#a855f7}
   .wf-step.blocked .wf-label{color:#d8b4fe}
@@ -662,7 +667,9 @@ function statusClass(t){
   if (!t) return 'pending';
   if (getCompleteFlag(t) === 'Y'){
     if (isFail(t)) return 'rejected';
-    if (isPartialPass(t)) return 'partial';
+    // Partial pass = "tentatively done" — render green-tinted while paving
+    // hasn't released yet; flip to a clean 'done' once paving signs it off.
+    if (isPartialPass(t)) return t._pavingReleased ? 'done' : 'partial';
     if (isIncomplete(t)) return 'blocked';
     // PASS and PASSWNOTE both fall through to 'done' — the note marker is
     // rendered separately, so both still register as "this step is OK to
@@ -680,6 +687,9 @@ function statusClass(t){
 // non-empty comments left by inspectors.
 function hasInspectorNote(t){
   if (!t) return false;
+  // A paving-released partial pass is considered taken care of — drop the pip
+  // so the tile looks like a clean green pass.
+  if (isPartialPass(t) && t._pavingReleased) return false;
   if (isPassWithNote(t) || isPartialPass(t) || isIncomplete(t)) return true;
   return Array.isArray(t.Comments) && t.Comments.some(c => c && c.text && c.text.trim().length);
 }
@@ -725,14 +735,47 @@ function isPassWithNote(t){
   return /PASS\s*W\/?\s*NOTE/i.test(getResultDisplay(t));
 }
 
-// Anything the user needs to look at: hard fail OR partial pass OR
-// blocked review.
-function isBlocking(t){ return isFail(t) || isPartialPass(t) || isIncomplete(t); }
+// Anything the user needs to look at: hard fail OR (un-released) partial pass
+// OR blocked review. Once an address's Paving inspection has passed, partials
+// for that address are considered taken care of and no longer block.
+function isBlocking(t){ return isFail(t) || (isPartialPass(t) && !t._pavingReleased) || isIncomplete(t); }
 
-// "Has this step actually opened the gate to the next step?" Pass and
-// Pass-with-Note both count; Partial / Incomplete / Fail do not.
+// "Has this step actually opened the gate to the next step?"
+// PASS, PASS w/ NOTE, and PARTIAL PASS all count — partial pass means the
+// inspector approved part of the work and downstream stages can keep moving;
+// the punch-list is tracked separately and clears on Paving.
 function passesGate(t){
-  return getCompleteFlag(t) === 'Y' && !isFail(t) && !isPartialPass(t) && !isIncomplete(t);
+  return getCompleteFlag(t) === 'Y' && !isFail(t) && !isIncomplete(t);
+}
+
+// True if this permit's Paving inspection has any passing attempt. Used to
+// auto-promote earlier partial-pass inspections (Insulation, etc.) from
+// "tinted green" to "fully green" and to drop them from open Failed / Notes
+// surfaces — the user's mental model is that Paving signs off the punch list.
+function isPavingReleased(p){
+  if (!p) return false;
+  for (const t of (p.Tasks||[])){
+    if (t && t.TaskCode === PAVING_RELEASE_GATE_CODE && getCompleteFlag(t) === 'Y'
+        && !isFail(t) && !isIncomplete(t)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+// Tag every partial-pass task on a Paving-released permit so the render
+// helpers can show them as "full green" without re-walking the permit. Called
+// from render() each pass so changes in the underlying data (re-fetched JSON)
+// flow through immediately.
+function annotatePartialPassReleases(){
+  if (!DATA || !Array.isArray(DATA.permits)) return;
+  for (const p of DATA.permits){
+    const released = isPavingReleased(p);
+    p._pavingReleased = released;
+    for (const t of (p.Tasks||[])){
+      if (isPartialPass(t)) t._pavingReleased = released;
+    }
+  }
 }
 
 function inspector(t){
@@ -1138,10 +1181,16 @@ function failureHistory(){
         .sort((a,b) => new Date(getCompleteDate(a)) - new Date(getCompleteDate(b)));
       // "First issue" is the first FAIL or PARTPASS — both kinds open the cycle.
       const firstIssue = completed.find(t => isFail(t) || isPartialPass(t));
-      // "Resolved" means a subsequent FULL pass — not another partial.
+      // "Resolved" means a subsequent NON-PARTIAL full pass — partial passes
+      // don't close their own cycle. (A partial-only group, however, is
+      // considered resolved once the permit's Paving inspection has passed.)
       const passedAfterFail = firstIssue
-        ? completed.find(t => passesGate(t) && new Date(getCompleteDate(t)) > new Date(getCompleteDate(firstIssue)))
+        ? completed.find(t => passesGate(t) && !isPartialPass(t)
+            && new Date(getCompleteDate(t)) > new Date(getCompleteDate(firstIssue)))
         : null;
+      const partialOnlyGroup = firstIssue
+        && completed.every(t => !isFail(t)) && tasks.some(t => isPartialPass(t));
+      const pavingReleased = partialOnlyGroup && p._pavingReleased;
       // Carry firstFail through as the earliest issue so the rest of the
       // code (which references `firstFail`) doesn't need to change.
       const firstFail = firstIssue;
@@ -1160,12 +1209,16 @@ function failureHistory(){
         : 'fail';
       // Open if there's no subsequent FULL pass and there's still a fail/partial
       // somewhere in the history — i.e., the inspector hasn't blessed the work.
+      // A partial-only group is considered "passed" (closed) once the same
+      // permit's Paving inspection has cleared.
+      const passed = !!passDate || pavingReleased;
       out.push({
         p, code,
         taskDesc: getTaskDesc(firstFail || tasks[0]) || code,
         attempts: completed,
         pending,
-        passed: !!passDate,
+        passed,
+        pavingReleased,
         firstFailDate, passDate,
         daysToPass, daysOpen,
         failCount, partialCount, firstKind,
@@ -1603,13 +1656,18 @@ function collectNotesAndFlags(){
       else if (isIncomplete(t))   kind = 'incomplete';
       if (!kind) continue;
       const code = t.TaskCode || '';
+      // A later non-partial pass on the same code closes the note.
       const completedAfter = (byCode.get(code) || []).filter(o =>
         o !== t &&
-        passesGate(o) &&
+        passesGate(o) && !isPartialPass(o) &&
         getCompleteDate(o) &&
         new Date(getCompleteDate(o)) > new Date(getCompleteDate(t) || 0)
       );
-      const resolved = completedAfter.length > 0;
+      // Partial passes additionally auto-resolve when Paving clears: the
+      // user's mental model is that the inspector signs off the punch list
+      // when paving passes, so anything still flagged "partial" gets retired.
+      const pavingResolved = kind === 'partial' && p._pavingReleased;
+      const resolved = completedAfter.length > 0 || pavingResolved;
       out.push({ p, t, kind, resolved, when: getCompleteDate(t) ? new Date(getCompleteDate(t)) : null });
     }
   }
@@ -1881,7 +1939,15 @@ const DEFAULT_CYCLE_STAGES = [
   {code:'BPB-FRAMIN', label:'Framing'},
   {code:'BPB-INSULA', label:'Insulation'},
   {code:'BPEN-PAVIN', label:'Paving'},
+  {code:'BPEL-ELECR', label:'Electric Release'},
+  {code:'BPB-MISCIN', label:'Miscellaneous'},
+  {code:'BPB-FINAL',  label:'Final'},
 ];
+
+// Inspections that are considered "released" once the address's Paving
+// inspection has passed — partial-pass results before Paving stay as partial
+// (green-tinted) but turn into a full green pass with no note after Paving.
+const PAVING_RELEASE_GATE_CODE = 'BPEN-PAVIN';
 
 // Persist custom selection across renders
 let CYCLE_FROM = 'BPB-SETBAC';
@@ -2533,6 +2599,9 @@ function renderReviews(){
 
 // ---------- Main render ----------
 function render(){
+  // Refresh derived per-task flags (e.g. partial-pass paving-release) before
+  // any of the tab renderers iterate the data.
+  annotatePartialPassReleases();
   const stats = document.getElementById('stats');
   if (!DATA){
     stats.textContent = 'No data loaded';
