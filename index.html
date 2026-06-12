@@ -1533,6 +1533,159 @@ function renderIssuesNotes(){
   applyFilter();
 }
 
+// ---------- Scheduled / This Week ----------
+// (These helpers were inadvertently removed during the Failed+Notes module
+// swap and are restored here. groupByBatch and groupByMilestone are used by
+// both the Scheduled/This-Week tabs and the new Issues & Notes renderer.)
+
+function groupByBatch(rows){
+  const groups = new Map();
+  for (const r of rows){
+    const b = batchOfPermit(r.p);
+    if (!groups.has(b)) groups.set(b, []);
+    groups.get(b).push(r);
+  }
+  const keys = [...groups.keys()].sort((a, b) => {
+    if (a == null && b == null) return 0;
+    if (a == null) return 1;
+    if (b == null) return -1;
+    const na = parseInt(a, 10), nb = parseInt(b, 10);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return String(a).localeCompare(String(b));
+  });
+  return keys.map(k => ({ batch: k, rows: groups.get(k) }));
+}
+
+function groupByMilestone(rows){
+  const groups = new Map();
+  for (const r of rows){
+    const m = msOf(r.t);
+    if (!groups.has(m)) groups.set(m, []);
+    groups.get(m).push(r);
+  }
+  return [...groups.keys()].sort((a, b) => a - b).map(k => ({ m: k, rows: groups.get(k) }));
+}
+
+// Every upcoming (not-yet-completed) inspection that has a target date.
+function collectScheduled(){
+  const out = [];
+  for (const p of allPermits()){
+    for (const t of (p.Tasks||[])){
+      if (!isInspection(t)) continue;
+      if (getCompleteFlag(t) === 'Y') continue;
+      const target = getTargetDate(t);
+      if (!target) continue;
+      out.push({ p, t, target: new Date(target) });
+    }
+  }
+  out.sort((a, b) => a.target - b.target);
+  return out;
+}
+
+// Upcoming inspections whose target date falls in the current Mon–Sun week.
+function collectThisWeek(){
+  const all = collectScheduled();
+  const now = new Date();
+  const monday = new Date(now); monday.setHours(0, 0, 0, 0);
+  // Day shift so Monday is the start (JS getDay: 0=Sun..6=Sat)
+  const dow = monday.getDay();
+  monday.setDate(monday.getDate() - ((dow + 6) % 7));
+  const nextMonday = new Date(monday); nextMonday.setDate(monday.getDate() + 7);
+  return all.filter(r => r.target >= monday && r.target < nextMonday);
+}
+
+function renderSchedRow(r){
+  const addr = streetAddr(r.p);
+  const desc = getTaskDesc(r.t) || r.t.TaskCode || '';
+  const date = shortDate(r.target);
+  const search = (getAddr(r.p) + ' ' + desc + ' ' + (r.p.CaseNumber || '')).toLowerCase();
+  return ''
+    + '<div class="insp-row sched" data-search="' + esc(search) + '">'
+    +   '<div>'
+    +     '<div class="insp-top">'
+    +       '<span class="insp-task">' + esc(desc) + '</span>'
+    +       '<span class="insp-case"><a href="' + esc(permitUrl(r.p)) + '" target="_blank" rel="noopener">' + esc(r.p.CaseNumber || '') + '</a></span>'
+    +     '</div>'
+    +     '<div class="insp-addr">' + esc(addr || '—') + '</div>'
+    +   '</div>'
+    +   '<div class="insp-right"><div class="when">' + esc(date) + '</div></div>'
+    + '</div>';
+}
+
+function renderScheduled(){
+  const main = document.getElementById('main');
+  const rows = collectScheduled();
+  if (!rows.length){
+    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No scheduled inspections</h2></div>';
+    return;
+  }
+  const groups = groupByBatch(rows);
+  let body = '';
+  for (const bg of groups){
+    const title = bg.batch == null ? 'Unassigned' : ('Batch ' + bg.batch);
+    body += '<section class="ms-section">'
+      + '<div class="ms-header"><span class="ms-chip sched">' + esc(title) + '</span>'
+      +   '<h2>' + bg.rows.length + ' upcoming</h2>'
+      + '</div>'
+      + bg.rows.map(renderSchedRow).join('')
+      + '</section>';
+  }
+  main.innerHTML = body;
+  applyFilter();
+}
+
+let THISWEEK_VIEW = 'date'; // 'batch' | 'date'
+
+function renderThisWeek(){
+  const main = document.getElementById('main');
+  const rows = collectThisWeek();
+  if (!rows.length){
+    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No inspections this week</h2></div>';
+    return;
+  }
+  const segBar =
+      '<div class="seg-toggle" style="margin-bottom:10px">'
+    +   '<button id="tw-view-batch" class="seg-btn ' + (THISWEEK_VIEW==='batch'?'active':'') + '">By Batch</button>'
+    +   '<button id="tw-view-date"  class="seg-btn ' + (THISWEEK_VIEW==='date' ?'active':'') + '">By Date</button>'
+    + '</div>';
+  let body = '';
+  if (THISWEEK_VIEW === 'batch'){
+    const groups = groupByBatch(rows);
+    for (const bg of groups){
+      const title = bg.batch == null ? 'Unassigned' : ('Batch ' + bg.batch);
+      body += '<section class="ms-section">'
+        + '<div class="ms-header"><span class="ms-chip sched">' + esc(title) + '</span>'
+        +   '<h2>' + bg.rows.length + ' this week</h2>'
+        + '</div>'
+        + bg.rows.map(renderSchedRow).join('')
+        + '</section>';
+    }
+  } else {
+    // Group by ymd date so each day reads as a daily run-of-show.
+    const byDate = new Map();
+    for (const r of rows){
+      const k = ymd(r.target);
+      if (!byDate.has(k)) byDate.set(k, []);
+      byDate.get(k).push(r);
+    }
+    const dateKeys = [...byDate.keys()].sort();
+    for (const k of dateKeys){
+      const group = byDate.get(k);
+      const label = shortDate(new Date(k));
+      body += '<section class="ms-section">'
+        + '<div class="ms-header"><span class="ms-chip sched">' + esc(label) + '</span>'
+        +   '<h2>' + group.length + ' inspection' + (group.length===1?'':'s') + '</h2>'
+        + '</div>'
+        + group.map(renderSchedRow).join('')
+        + '</section>';
+    }
+  }
+  main.innerHTML = segBar + body;
+  document.getElementById('tw-view-batch').onclick = () => { THISWEEK_VIEW='batch'; renderThisWeek(); };
+  document.getElementById('tw-view-date' ).onclick = () => { THISWEEK_VIEW='date';  renderThisWeek(); };
+  applyFilter();
+}
+
 // ---------- Cycle Times ----------
 // Latest passing completion date for a given TaskCode within a permit.
 // Only "true" passes count — partial passes and incomplete reviews still
