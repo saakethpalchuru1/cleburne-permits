@@ -208,6 +208,7 @@
   .status-tag.ok{background:#052e1a;color:#86efac;border:1px solid #166534}
   .status-tag.err{background:#3b0a0a;color:#fca5a5;border:1px solid #7f1d1d}
   .status-tag.warn{background:#3b2a0a;color:#fcd34d;border:1px solid #7c5c1d}
+  .status-tag.info{background:#0c2438;color:#93c5fd;border:1px solid #1d4ed8}
   .fail-group-body{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);display:flex;flex-direction:column;gap:8px}
   .attempt{padding:8px 10px;border-radius:6px;border:1px solid var(--border);background:#020617}
   .attempt.fail{border-left:2px solid var(--err)}
@@ -221,6 +222,60 @@
   .seg-toggle .seg-btn.active{background:#1d4ed8;color:#fff}
   .seg-toggle .seg-btn.active .seg-count{background:rgba(255,255,255,.2);color:#fff}
   .seg-toggle .seg-count{background:var(--panel2);color:var(--muted);border-radius:9999px;padding:1px 7px;font-size:11px;font-weight:600}
+  /* Wrap variant — for filter rows that may overflow on narrow screens. */
+  .seg-toggle.seg-toggle-wrap{display:inline-flex;flex-wrap:wrap;overflow:visible;border-radius:8px}
+  .seg-toggle.seg-toggle-wrap .seg-btn{border-radius:0}
+  .seg-toggle.seg-toggle-wrap .seg-btn:first-child{border-top-left-radius:8px;border-bottom-left-radius:8px}
+  .seg-toggle.seg-toggle-wrap .seg-btn:last-child{border-top-right-radius:8px;border-bottom-right-radius:8px}
+  /* Density toggle button in the toolbar — same styling as a secondary button. */
+  .density-btn{padding:6px 10px;border:1px solid var(--border);background:var(--panel2);color:var(--text);border-radius:6px;font-size:12.5px;cursor:pointer;font-weight:500}
+  .density-btn:hover{background:#1e293b}
+  .density-btn.active{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+  /* Filter chips: each inspection-type chip toggles its visibility across all
+     workflow strips. Hidden chips fade and lose the colored dot. */
+  .stage-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 12px 10px;border-bottom:1px solid var(--border);background:#0b1220}
+  .stage-chips .chip-meta{font-size:11px;color:var(--muted);align-self:center;margin-right:4px}
+  .stage-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border:1px solid var(--border);border-radius:9999px;background:var(--panel);color:var(--text);font-size:11.5px;cursor:pointer;user-select:none}
+  .stage-chip:hover{background:var(--panel2)}
+  .stage-chip.off{color:#64748b;text-decoration:line-through;background:transparent}
+  .stage-chip-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--curr)}
+  .stage-chip.off .stage-chip-dot{background:#1e293b;border:1px solid #475569}
+  .stage-chip-all{font-weight:600}
+  /* Collapsed batch card — header only, body hidden. */
+  .batch.collapsed .batch-body{display:none}
+  .batch.collapsed .batch-progress{margin-bottom:0}
+  .batch-toggle{margin-left:8px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer}
+  .batch-toggle:hover{color:var(--text);background:var(--panel2)}
+  /* Compact view: address rows replace the workflow strip with a one-line status row. */
+  .addr-row{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;background:#0b1220;border:1px solid var(--border);margin-bottom:4px;cursor:pointer}
+  .addr-row:hover{background:#111827}
+  .addr-row .addr-name{flex:1 1 200px;font-size:13px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .addr-row .addr-stage-chip{font-size:11px;padding:2px 8px;border-radius:9999px;background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+  .addr-row .addr-stage-chip.done{background:#052e1a;color:#86efac;border-color:#166534}
+  .addr-row .addr-stage-chip.partial{background:#0f2f1a;color:#86efac;border-color:#166534;background-image:repeating-linear-gradient(135deg, rgba(255,255,255,.18) 0 3px, transparent 3px 6px)}
+  .addr-row .addr-stage-chip.fail{background:#3b0a0a;color:#fca5a5;border-color:#7f1d1d}
+  .addr-row .addr-stage-chip.pending{background:#1e293b;color:#94a3b8;border-color:#334155}
+  .addr-row .addr-progress{font-size:11px;color:var(--muted);min-width:42px;text-align:right}
+  .addr-row .addr-expand{color:var(--muted);font-size:11px}
+  .addr-row.expanded{background:#020617}
+  .addr-row + .addr-expanded-card{margin:-2px 0 6px;background:#020617;border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;padding:10px}
+  /* Mobile responsive — at narrow widths the workflow strips wrap, cards
+     stack full-width, and the toolbar gives more vertical space. */
+  @media (max-width: 720px) {
+    .toolbar{flex-wrap:wrap;gap:6px;padding:8px 10px}
+    .toolbar input{flex:1 1 100%;min-width:0}
+    .toolbar select{flex:1 1 60%}
+    .legend{display:none}
+    .stage-chips{padding:8px 10px;border-bottom:1px solid var(--border)}
+    .tabs{flex-wrap:wrap;gap:4px}
+    .tabs button{flex:1 1 auto;font-size:12px;padding:6px 8px}
+    .batch-body{padding:0 8px 8px}
+    .card-compact{flex-basis:100% !important;max-width:100%}
+    .milestone-tasks{flex-wrap:wrap;gap:10px 6px}
+    .wf-step{min-width:54px;padding:0}
+    .wf-label{max-width:54px;font-size:8px}
+    .wf-step + .wf-step::before{display:none}  /* drop the connecting line so wraps look clean */
+  }
   .attempt-hdr{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:12px;color:var(--muted)}
   .attempt-num{font-weight:600;color:var(--text);min-width:72px}
   .attempt-date{color:var(--text);font-weight:500}
@@ -258,10 +313,9 @@
   <div class="tabs">
     <button id="tab-batches" class="active">By Batch</button>
     <button id="tab-all">All Permits</button>
-    <button id="tab-failed">Failed Inspections <span class="count" id="cnt-failed">0</span></button>
+    <button id="tab-issues">Issues &amp; Notes <span class="count" id="cnt-issues">0</span></button>
     <button id="tab-scheduled">Scheduled <span class="count" id="cnt-sched">0</span></button>
     <button id="tab-thisweek">This Week <span class="count" id="cnt-week">0</span></button>
-    <button id="tab-notes">Notes &amp; Flags <span class="count" id="cnt-notes">0</span></button>
     <button id="tab-reviews">Review Progress <span class="count" id="cnt-reviews">0</span></button>
     <button id="tab-cycle">Cycle Times</button>
   </div>
@@ -274,6 +328,7 @@
 <div class="toolbar">
   <input id="search" placeholder="Search permit, address, name, task, inspector..." />
   <select id="filter-status"><option value="">All statuses</option></select>
+  <button id="btn-density" class="density-btn" type="button" title="Toggle compact / full view">Compact view</button>
   <div class="legend">
     <span class="legend-item"><span class="legend-dot" style="background:var(--ok)"></span>Completed</span>
     <span class="legend-item"><span class="legend-dot" style="background:var(--curr)"></span>Scheduled</span>
@@ -282,6 +337,9 @@
     <span class="legend-item"><span class="legend-dot" style="background:var(--err)"></span>Failed / Rejected</span>
   </div>
 </div>
+<!-- Filter chips: per-inspection-type visibility toggles. Hidden stages
+     disappear from every workflow strip + batch overview tile in this session. -->
+<div id="stage-chip-row" class="stage-chips"></div>
 
 <main id="main">
   <div class="empty">
@@ -848,6 +906,12 @@ function workflowHtml(tasks){
   if (!tasks.length) return '<div class="case-sub" style="padding:6px 0">No workflow tasks.</div>';
   // Defensive re-sort to guarantee milestone order no matter the caller
   tasks = sortedTasks(tasks);
+  // Apply the global stage-visibility filter: hide tasks whose TaskCode is
+  // an inspection-pipeline stage that the user toggled off. Other (review)
+  // tasks always remain visible.
+  const pipelineCodes = new Set(DEFAULT_CYCLE_STAGES.map(s => s.code));
+  tasks = tasks.filter(t => !pipelineCodes.has(t.TaskCode) || isStageVisible(t.TaskCode));
+  if (!tasks.length) return '<div class="case-sub" style="padding:6px 0">All stages hidden — re-enable some chips up top.</div>';
   const groups = [];
   let currentMilestone = null, currentList = null;
   for (const t of tasks){
@@ -925,23 +989,87 @@ function batchCard(batchNum, addrs, permitsInBatch){
   const doneTasks = permitsInBatch.reduce((a,b) => a + ((b.permit&&b.permit.Tasks)||[]).filter(t=>t.TaskCompleteFlag==='Y').length, 0);
   const pct = totalTasks ? Math.round(doneTasks/totalTasks*100) : 0;
   const matched = permitsInBatch.filter(x=>x.permit).length;
-  return '<section class="batch" data-batch-id="' + esc(batchNum) + '">'
-    + '<div class="batch-head"><div class="batch-title">'
-    +   '<div class="batch-num">' + batchNum + '</div>'
-    +   '<div><div class="batch-name">Batch ' + batchNum + '</div>'
-    +   '<div class="batch-stats">' + matched + '/' + addrs.length + ' permits matched · ' + doneTasks + '/' + totalTasks + ' tasks done (' + pct + '%)</div></div>'
-    + '</div></div>'
-    + '<div class="batch-progress"><div class="batch-progress-fill" style="width:' + pct + '%"></div></div>'
-    + '<div class="batch-body">'
-    +   (matched > 1
+  // Decide initial collapse state: if every required visible stage has passed
+  // for every permit in this batch AND the user hasn't explicitly toggled it
+  // already, default to collapsed (fully-built batches stay out of the way).
+  const key = batchCollapseKey(batchNum);
+  if (!BATCH_COLLAPSED.has(key)){
+    const required = visibleStages().filter(s => !isOptionalCode(s.code));
+    const allDone = matched > 0 && required.every(s =>
+      permitsInBatch.every(x => x.permit && latestPassingDate(x.permit, s.code)));
+    BATCH_COLLAPSED.set(key, allDone);
+  }
+  const collapsed = BATCH_COLLAPSED.get(key);
+  const collapseLabel = collapsed ? 'Expand' : 'Collapse';
+  // Body: compact density swaps the permit cards for one-row address rows.
+  const body = DENSITY === 'compact'
+    ? permitsInBatch.map(x => x.permit
+        ? addressRow(x.permit)
+        : '<div class="unassigned-addr">⚠ No permit found for: ' + esc(streetOnly(x.addr)) + '</div>').join('')
+    : (matched > 1
         ? '<div class="batch-scrub-row">'
           + '<label>Scroll timeline</label>'
           + '<input class="batch-scrubber" type="range" min="0" max="1000" step="1" value="0" aria-label="Scroll all permit timelines in this batch" />'
           + '<span class="batch-scrub-pos">start</span>'
           + '</div>'
         : '')
-    +   permitsInBatch.map(x => x.permit ? permitCard(x.permit, true) : '<div class="unassigned-addr">⚠ No permit found for: ' + esc(streetOnly(x.addr)) + '</div>').join('')
-    + '</div></section>';
+        + permitsInBatch.map(x => x.permit
+            ? permitCard(x.permit, true)
+            : '<div class="unassigned-addr">⚠ No permit found for: ' + esc(streetOnly(x.addr)) + '</div>').join('');
+  return '<section class="batch ' + (collapsed?'collapsed':'') + '" data-batch-id="' + esc(batchNum) + '">'
+    + '<div class="batch-head"><div class="batch-title">'
+    +   '<div class="batch-num">' + batchNum + '</div>'
+    +   '<div><div class="batch-name">Batch ' + batchNum + '</div>'
+    +   '<div class="batch-stats">' + matched + '/' + addrs.length + ' permits matched · ' + doneTasks + '/' + totalTasks + ' tasks done (' + pct + '%)</div></div>'
+    + '</div>'
+    +   '<button class="batch-toggle" data-batch-toggle="' + esc(batchNum) + '">' + collapseLabel + '</button>'
+    + '</div>'
+    + '<div class="batch-progress"><div class="batch-progress-fill" style="width:' + pct + '%"></div></div>'
+    + '<div class="batch-body">' + body + '</div></section>';
+}
+
+// Compact-density one-line row for a permit. Shows the address, the current
+// (still-pending) pipeline stage, a status chip, and progress %. Click to
+// expand the full workflow inline below.
+function addressRow(p){
+  const addr = streetAddr(p) || '(no address)';
+  const tasks = sortedTasks(p.Tasks||[]);
+  const total = tasks.length;
+  const done = tasks.filter(t => getCompleteFlag(t) === 'Y').length;
+  const pct = total ? Math.round(done/total*100) : 0;
+  // Current stage = the first visible pipeline stage that has NOT passed.
+  let stageCode = null, stageLabel = '—', stageCls = 'pending';
+  for (const s of visibleStages()){
+    if (isOptionalCode(s.code)) continue;
+    if (!latestPassingDate(p, s.code)){
+      stageCode = s.code; stageLabel = 'Next: ' + s.label; stageCls = 'pending'; break;
+    }
+  }
+  // If everything visible has passed, surface the last completed stage instead.
+  if (!stageCode){
+    const vis = visibleStages().filter(s => !isOptionalCode(s.code));
+    const last = vis[vis.length-1];
+    if (last){ stageLabel = '✓ ' + last.label; stageCls = 'done'; }
+  } else {
+    // If the most recent attempt on this code was a fail/partial, color the chip.
+    const latestForCode = (tasks.filter(t => t.TaskCode === stageCode))
+      .sort((a,b) => new Date(getCompleteDate(b)||0) - new Date(getCompleteDate(a)||0))[0];
+    if (latestForCode){
+      if (isFail(latestForCode)) stageCls = 'fail';
+      else if (isPartialPass(latestForCode)) stageCls = 'partial';
+    }
+  }
+  const expanded = EXPANDED_PERMITS.has(p.CaObjectId);
+  const search = esc(((p.CaseNumber||'')+' '+getAddr(p)+' '+(p.CaseName||'')).toLowerCase());
+  const expanderHtml = expanded
+    ? '<div class="addr-expanded-card">' + permitCard(p, true) + '</div>'
+    : '';
+  return '<div class="card addr-row ' + (expanded?'expanded':'') + '" data-status="' + esc(p.CaseStatus||'') + '" data-search="' + search + '" data-permit-id="' + esc(p.CaObjectId) + '">'
+    + '<a href="' + esc(permitUrl(p)) + '" target="_blank" rel="noopener" class="addr-name" style="color:var(--text);text-decoration:none">' + esc(addr) + '</a>'
+    + '<span class="addr-stage-chip ' + stageCls + '">' + esc(stageLabel) + '</span>'
+    + '<span class="addr-progress">' + pct + '%</span>'
+    + '<span class="addr-expand">' + (expanded?'▾':'▸') + '</span>'
+    + '</div>' + expanderHtml;
 }
 
 function permitKeys(p){
@@ -971,11 +1099,12 @@ function batchInspectionStatus(){
         if (byAddr[k]){ permits.push({addr:a, permit:byAddr[k]}); break; }
       }
     }
-    // Build stages from the default pipeline. Each stage shows pass count +
-    // laggard list. Optional stages (like T-Pole) still appear as a tile so
-    // the user can see who got it, but they don't count toward lagging or
-    // break the "all aligned through X" detection.
-    const stages = DEFAULT_CYCLE_STAGES.map(stage => {
+    // Build stages from the default pipeline, honoring the user's per-stage
+    // visibility chips. Each stage shows pass count + laggard list. Optional
+    // stages (like T-Pole) still appear as a tile so the user can see who got
+    // it, but they don't count toward lagging or break the "all aligned through
+    // X" detection.
+    const stages = visibleStages().map(stage => {
       const passed = [], pending = [];
       for (const entry of permits){
         const d = latestPassingDate(entry.permit, stage.code);
@@ -1105,6 +1234,37 @@ function renderBatches(){
   main.innerHTML = renderBatchOverview() + '<div class="batches">' + batchesHtml + '</div>' + orphanHtml;
   applyFilter();
   wireBatchScrubbers();
+  wireBatchToggles();
+  wireAddressRows();
+}
+
+// Collapse/expand button on each batch header. Records state in BATCH_COLLAPSED
+// so it survives re-renders within the same session.
+function wireBatchToggles(){
+  document.querySelectorAll('button[data-batch-toggle]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const num = btn.getAttribute('data-batch-toggle');
+      const k = batchCollapseKey(num);
+      BATCH_COLLAPSED.set(k, !BATCH_COLLAPSED.get(k));
+      renderBatches();
+    };
+  });
+}
+
+// Compact-density address rows: click to expand a single permit inline.
+function wireAddressRows(){
+  document.querySelectorAll('.addr-row').forEach(row => {
+    row.onclick = (e) => {
+      // Don't toggle when the user actually clicked the address link itself.
+      if (e.target && e.target.tagName === 'A') return;
+      const id = Number(row.getAttribute('data-permit-id'));
+      if (!id) return;
+      if (EXPANDED_PERMITS.has(id)) EXPANDED_PERMITS.delete(id);
+      else EXPANDED_PERMITS.add(id);
+      renderBatches();
+    };
+  });
 }
 
 // One slider per batch scrolls every permit's workflow strip in unison.
@@ -1143,505 +1303,25 @@ function renderAll(){
   applyFilter();
 }
 
-// ---------- Failed inspections ----------
-// Kept for backward-compat / count badge: every blocking inspection row
-// (FAIL or PARTIAL PASS). Partial pass needs the remaining items re-inspected,
-// so it belongs in this surface area.
-function collectFailed(){
+// ---------- Issues & Notes ----------
+// Unified surface for everything inspector-flagged: FAIL, PARTIAL PASS,
+// INCOMPLETE (blocking review), and PASS w/ NOTE. Replaces the old separate
+// "Failed Inspections" and "Notes & Flags" tabs. PASS w/ NOTE is informational
+// only — it never counts as Open.
+
+let ISSUES_VIEW = 'open';        // 'open' | 'recent' | 'all'
+let ISSUES_KIND = 'all';         // 'all' | 'fail' | 'partial' | 'incomplete' | 'passnote'
+const ISSUES_RECENT_DAYS = 14;
+
+// One row per (permit, task) event worth attention. Rows carry bucket
+// ('open' | 'recent' | 'past'), kind, resolved flag, and the inspector notes.
+function collectIssuesAndNotes(){
   const out = [];
+  const now = Date.now();
+  const recentMs = ISSUES_RECENT_DAYS * 86400000;
   for (const p of allPermits()){
-    for (const t of (p.Tasks||[])){
-      if (!isInspection(t)) continue;
-      if (!isFail(t) && !isPartialPass(t)) continue;
-      out.push({p, t});
-    }
-  }
-  return out;
-}
-
-// Failure history grouped by (permit, TaskCode): every sequence of attempts
-// for an inspection type that had at least one failure OR partial pass.
-function failureHistory(){
-  const out = [];
-  for (const p of allPermits()){
-    const byCode = new Map();
-    for (const t of (p.Tasks||[])){
-      if (!isInspection(t)) continue;
-      const c = t.TaskCode || '';
-      if (!c) continue;
-      if (!byCode.has(c)) byCode.set(c, []);
-      byCode.get(c).push(t);
-    }
-    for (const [code, tasks] of byCode){
-      // An inspection sequence enters this surface if it contains a hard fail
-      // OR a partial pass — both mean follow-up work.
-      if (!tasks.some(t => isFail(t) || isPartialPass(t))) continue;
-      const completed = tasks
-        .filter(t => getCompleteFlag(t) === 'Y' && getCompleteDate(t))
-        .sort((a,b) => new Date(getCompleteDate(a)) - new Date(getCompleteDate(b)));
-      // "First issue" is the first FAIL or PARTPASS — both kinds open the cycle.
-      const firstIssue = completed.find(t => isFail(t) || isPartialPass(t));
-      // "Resolved" means a subsequent NON-PARTIAL full pass — partial passes
-      // don't close their own cycle. (A partial-only group, however, is
-      // considered resolved once the permit's Paving inspection has passed.)
-      const passedAfterFail = firstIssue
-        ? completed.find(t => passesGate(t) && !isPartialPass(t)
-            && new Date(getCompleteDate(t)) > new Date(getCompleteDate(firstIssue)))
-        : null;
-      const partialOnlyGroup = firstIssue
-        && completed.every(t => !isFail(t)) && tasks.some(t => isPartialPass(t));
-      const pavingReleased = partialOnlyGroup && p._pavingReleased;
-      // Carry firstFail through as the earliest issue so the rest of the
-      // code (which references `firstFail`) doesn't need to change.
-      const firstFail = firstIssue;
-      const pending = tasks
-        .filter(t => getCompleteFlag(t) !== 'Y')
-        .sort((a,b) => new Date(getTargetDate(a)||0) - new Date(getTargetDate(b)||0));
-      const firstFailDate = firstFail ? new Date(getCompleteDate(firstFail)) : null;
-      const passDate = passedAfterFail ? new Date(getCompleteDate(passedAfterFail)) : null;
-      const daysToPass = (firstFailDate && passDate) ? (passDate - firstFailDate)/86400000 : null;
-      const daysOpen = (firstFailDate && !passDate) ? (Date.now() - firstFailDate)/86400000 : null;
-      const failCount = completed.filter(isFail).length;
-      const partialCount = completed.filter(isPartialPass).length;
-      // Kind of the first issue dictates badge styling for the group.
-      const firstKind = firstIssue
-        ? (isFail(firstIssue) ? 'fail' : isPartialPass(firstIssue) ? 'partial' : 'fail')
-        : 'fail';
-      // Open if there's no subsequent FULL pass and there's still a fail/partial
-      // somewhere in the history — i.e., the inspector hasn't blessed the work.
-      // A partial-only group is considered "passed" (closed) once the same
-      // permit's Paving inspection has cleared.
-      const passed = !!passDate || pavingReleased;
-      out.push({
-        p, code,
-        taskDesc: getTaskDesc(firstFail || tasks[0]) || code,
-        attempts: completed,
-        pending,
-        passed,
-        pavingReleased,
-        firstFailDate, passDate,
-        daysToPass, daysOpen,
-        failCount, partialCount, firstKind,
-        milestone: msOf(firstFail || tasks[0])
-      });
-    }
-  }
-  // Still-open incidents first (oldest fail first), then resolved (longest cycle first)
-  out.sort((a,b) => {
-    if (a.passed !== b.passed) return a.passed ? 1 : -1;
-    if (!a.passed) return a.firstFailDate - b.firstFailDate;
-    return (b.daysToPass||0) - (a.daysToPass||0);
-  });
-  return out;
-}
-
-function groupByMilestone(rows){
-  const groups = new Map();
-  for (const r of rows){
-    const m = msOf(r.t); // numeric, consistent with workflow ordering
-    if (!groups.has(m)) groups.set(m, []);
-    groups.get(m).push(r);
-  }
-  return [...groups.keys()].sort((a,b)=>a-b).map(k => ({m:k, rows:groups.get(k)}));
-}
-
-// Group rows by batch number (via permitBatchMap); unassigned rows land in null bucket.
-function groupByBatch(rows){
-  const groups = new Map();
-  for (const r of rows){
-    const b = batchOfPermit(r.p);
-    const key = (b == null) ? null : b;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(r);
-  }
-  // Numeric batches in natural order, unassigned at the end
-  const keys = [...groups.keys()].sort((a,b) => {
-    if (a == null) return 1;
-    if (b == null) return -1;
-    const na = typeof a === 'number' ? a : parseInt(a,10);
-    const nb = typeof b === 'number' ? b : parseInt(b,10);
-    if (!isNaN(na) && !isNaN(nb)) return na - nb;
-    return String(a).localeCompare(String(b));
-  });
-  return keys.map(k => ({batch:k, rows:groups.get(k)}));
-}
-
-function renderFailureAttempt(t, idx){
-  const failed   = isFail(t);
-  const partial  = isPartialPass(t);
-  const noteOnly = isPassWithNote(t);
-  const rd = getResultDisplay(t);
-  const d = shortDate(getCompleteDate(t));
-  const notes = getComments(t).filter(c => c && c.text);
-  const notesHtml = notes.length
-    ? '<div class="attempt-notes">' + notes.map(c => (
-        '<div><span style="font-weight:600;color:#e2e8f0">' + esc(c.by||'—') + '</span> '
-        + '<span style="color:var(--muted);font-size:11px">' + esc(shortDateTime(c.date)) + '</span><br/>'
-        + esc(c.text) + '</div>'
-      )).join('') + '</div>'
-    : '';
-  // Pill style varies by result kind.
-  let pillStyle, pillClass;
-  if (failed){
-    pillStyle = '';                                                        pillClass = 'pill danger';
-  } else if (partial){
-    pillStyle = 'background:#3a2a05;color:#fbbf24;border-color:#92400e';   pillClass = 'pill';
-  } else if (noteOnly){
-    pillStyle = 'background:#052e1a;color:#86efac;border-color:#166534';   pillClass = 'pill';
-  } else {
-    pillStyle = 'background:#052e1a;color:#86efac;border-color:#166534';   pillClass = 'pill';
-  }
-  const kindCls  = failed ? 'fail' : partial ? 'partial' : 'pass';
-  const reins = t.IsReinspection==='Y' ? ' <span class="pill reins">Reinspection</span>' : '';
-  return '<div class="attempt ' + kindCls + '">'
-    + '<div class="attempt-hdr">'
-    +   '<span class="attempt-num">Attempt ' + (idx+1) + '</span>'
-    +   '<span class="' + pillClass + '" style="' + pillStyle + '">' + esc(rd || (failed?'FAIL':partial?'PARTIAL PASS':'PASS')) + '</span>'
-    +   reins
-    +   '<span class="attempt-date">' + (d||'—') + '</span>'
-    +   (inspector(t) ? '<span class="attempt-meta">Inspector: <b>' + esc(inspector(t)) + '</b></span>' : '')
-    + '</div>'
-    + notesHtml
-    + '</div>';
-}
-
-function renderPendingReinspection(t){
-  const target = getTargetDate(t);
-  const avail = t.TaskAvailableDate;
-  const dateLabel = target ? 'Target ' + shortDate(target)
-    : avail ? 'Available ' + shortDate(avail)
-    : 'Not yet scheduled';
-  return '<div class="attempt pending">'
-    + '<div class="attempt-hdr">'
-    +   '<span class="attempt-num">Next</span>'
-    +   '<span class="pill reins">Awaiting reinspection</span>'
-    +   '<span class="attempt-date">' + esc(dateLabel) + '</span>'
-    + '</div>'
-    + '</div>';
-}
-
-function renderFailedGroup(g){
-  const addr = streetAddr(g.p);
-  const attemptsHtml = g.attempts.map((t,i) => renderFailureAttempt(t,i)).join('');
-  // Only show "awaiting reinspection" if still open, i.e. not yet passed
-  const pendingHtml = !g.passed && g.pending.length ? renderPendingReinspection(g.pending[0]) : '';
-  const issueWord = (g.firstKind === 'partial' && g.failCount === 0) ? 'partial pass' : 'first issue';
-  const statusBanner = g.passed
-    ? '<span class="status-tag ok">Resolved · ' + g.daysToPass.toFixed(1) + ' days to pass</span>'
-    : '<span class="status-tag err">Open · ' + Math.round(g.daysOpen) + ' days since ' + issueWord + '</span>';
-  const batch = batchOfPermit(g.p);
-  const batchChip = batch != null
-    ? '<span class="pill" style="margin-left:6px">Batch ' + esc(batch) + '</span>'
-    : '';
-  // Pill summarizing what kind of issue this is.
-  let kindChip = '';
-  if (g.failCount && g.partialCount){
-    kindChip = '<span class="pill danger" style="margin-left:6px">' + g.failCount + ' fail / ' + g.partialCount + ' partial</span>';
-  } else if (g.failCount){
-    kindChip = '<span class="pill danger" style="margin-left:6px">' + g.failCount + ' fail</span>';
-  } else if (g.partialCount){
-    kindChip = '<span class="pill" style="margin-left:6px;background:#3a2a05;color:#fbbf24;border-color:#92400e">' + g.partialCount + ' partial pass</span>';
-  }
-  const search = (getAddr(g.p) + ' ' + g.taskDesc + ' ' + g.attempts.map(t => inspector(t)).join(' ')).toLowerCase();
-  return '<div class="fail-group ' + (g.passed?'resolved':'') + '" data-search="' + esc(search) + '">'
-    + '<div class="fail-group-hdr">'
-    +   '<div style="flex:1 1 320px">'
-    +     '<div class="fail-task">' + esc(g.taskDesc) + batchChip + kindChip + '</div>'
-    +     '<div class="fail-sub">'
-    +       '<a href="' + esc(permitUrl(g.p)) + '" target="_blank" rel="noopener">' + esc(addr||'—') + '</a>'
-    +       (g.firstFailDate ? ' · first issue ' + shortDate(g.firstFailDate) : '')
-    +     '</div>'
-    +   '</div>'
-    +   '<div>' + statusBanner + '</div>'
-    + '</div>'
-    + '<div class="fail-group-body">'
-    +   attemptsHtml
-    +   pendingHtml
-    + '</div>'
-    + '</div>';
-}
-
-// Persisted across re-renders.
-let FAIL_VIEW = 'all'; // 'all' | 'open'
-
-function renderFailed(){
-  const main = document.getElementById('main');
-  const allGroups = failureHistory();
-  if (!allGroups.length){
-    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No failed inspections</h2><p>Nothing currently marked as failed / rejected / denied / no-show.</p></div>';
-    return;
-  }
-  const open = allGroups.filter(g => !g.passed);
-  const resolved = allGroups.filter(g => g.passed);
-  const avgDaysToPass = resolved.length ? (resolved.reduce((s,g)=>s+(g.daysToPass||0),0)/resolved.length) : null;
-  const maxOpenDays = open.length ? Math.max(...open.map(g => g.daysOpen||0)) : 0;
-  const uniquePermits = new Set(allGroups.map(g => g.p.CaObjectId)).size;
-
-  const summary = '<div class="fail-summary">'
-    + '<div class="card-compact"><div class="lbl">Failure incidents</div><div class="val">' + allGroups.length + '</div></div>'
-    + '<div class="card-compact"><div class="lbl">Still open</div><div class="val" style="color:' + (open.length?'var(--err)':'var(--muted)') + '">' + open.length + '</div></div>'
-    + '<div class="card-compact"><div class="lbl">Avg days to pass</div><div class="val">' + (avgDaysToPass==null?'—':avgDaysToPass.toFixed(1)+'d') + '</div></div>'
-    + '<div class="card-compact"><div class="lbl">Permits affected</div><div class="val">' + uniquePermits + '</div></div>'
-    + '</div>';
-
-  // Filter toggle: All vs Open only
-  const filterBar =
-      '<div class="seg-toggle" style="margin-bottom:10px">'
-    +   '<button id="fail-view-all"  class="seg-btn '  + (FAIL_VIEW==='all' ?'active':'') + '">All <span class="seg-count">' + allGroups.length + '</span></button>'
-    +   '<button id="fail-view-open" class="seg-btn '  + (FAIL_VIEW==='open'?'active':'') + '">Open only <span class="seg-count">' + open.length + '</span></button>'
-    + '</div>';
-
-  const groups = FAIL_VIEW === 'open' ? open : allGroups;
-  let body = '';
-  if (!groups.length){
-    body = '<div class="empty"><h2 style="color:var(--text)">No matching incidents</h2><p>Nothing in the selected view. Switch to All to see resolved incidents.</p></div>';
-  } else {
-    // Group the list by batch so the user can see which batches carry which issues
-    const byBatch = groupByBatch(groups.map(g => ({p:g.p, _g:g})));
-    for (const bg of byBatch){
-      const title = (bg.batch == null) ? 'Unassigned (not in any batch)' : ('Batch ' + bg.batch);
-      const openInBatch = bg.rows.filter(r => !r._g.passed).length;
-      const chipClass = openInBatch ? 'fail' : 'sched';
-      body += '<section class="ms-section">'
-        + '<div class="ms-header"><span class="ms-chip ' + chipClass + '">' + esc(title) + '</span>'
-        +   '<h2>' + bg.rows.length + ' incident' + (bg.rows.length===1?'':'s') + '</h2>'
-        +   (openInBatch ? '<span class="ms-count" style="color:var(--err)">' + openInBatch + ' still open</span>' : '<span class="ms-count" style="color:var(--ok)">all resolved</span>')
-        + '</div>'
-        + bg.rows.map(r => renderFailedGroup(r._g)).join('')
-        + '</section>';
-    }
-  }
-
-  // Extra context footer for oldest open incident (if any)
-  const footer = open.length
-    ? '<div style="color:var(--muted);font-size:12px;margin-top:8px">Oldest open incident: ' + Math.round(maxOpenDays) + ' days since first fail.</div>'
-    : '';
-
-  main.innerHTML = summary + filterBar + body + footer;
-  document.getElementById('fail-view-all' ).onclick = () => { FAIL_VIEW='all';  renderFailed(); };
-  document.getElementById('fail-view-open').onclick = () => { FAIL_VIEW='open'; renderFailed(); };
-  applyFilter();
-}
-
-// ---------- Scheduled inspections (upcoming with a target date) ----------
-function collectScheduled(){
-  const scheduled = [];
-  const today = new Date(); today.setHours(0,0,0,0);
-  for (const p of allPermits()){
-    for (const t of (p.Tasks||[])){
-      if (!isInspection(t)) continue;
-      if (getCompleteFlag(t) === 'Y') continue;
-      const ts = getTargetDate(t);
-      if (!ts) continue;
-      const tsd = new Date(ts);
-      if (tsd >= today) scheduled.push({p, t, when: tsd});
-    }
-  }
-  scheduled.sort((a,b) => a.when - b.when);
-  return scheduled;
-}
-
-// ---------- Inspections that happened this week (Sun → Sat, completed) ----------
-function weekBounds(){
-  const now = new Date();
-  const start = new Date(now); start.setHours(0,0,0,0);
-  start.setDate(start.getDate() - start.getDay()); // rewind to Sunday
-  const end = new Date(start); end.setDate(end.getDate()+7); // next Sunday (exclusive)
-  return {start, end};
-}
-
-function collectThisWeek(){
-  const {start, end} = weekBounds();
-  const out = [];
-  for (const p of allPermits()){
-    for (const t of (p.Tasks||[])){
-      if (!isInspection(t)) continue;
-      if (getCompleteFlag(t) !== 'Y') continue;
-      const d = getCompleteDate(t);
-      if (!d) continue;
-      const dt = new Date(d);
-      if (dt >= start && dt < end) out.push({p, t, when: dt});
-    }
-  }
-  // Most recent first
-  out.sort((a,b) => b.when - a.when);
-  return out;
-}
-
-function renderScheduledRow({p,t,when}, kind){
-  const dateText = when ? shortDate(when) : (t.TaskAvailableDate ? 'Avail ' + shortDate(t.TaskAvailableDate) : 'Ready');
-  const taskDesc = getTaskDesc(t);
-  const addr = streetAddr(p);
-  const fullAddr = getAddr(p);
-  const ms = msOf(t);
-  const search = (fullAddr+' '+taskDesc+' '+inspector(t)).toLowerCase();
-  return '<div class="insp-row ' + kind + '" data-search="' + esc(search) + '">'
-    + '<div>'
-    +   '<div class="insp-top">'
-    +     '<span class="insp-task">' + esc(taskDesc) + '</span>'
-    +     (t.IsReinspection==='Y' ? ' <span class="pill reins">Reinspection</span>' : '')
-    +   '</div>'
-    +   '<div class="insp-meta">'
-    +     '<a class="insp-addr" href="' + esc(permitUrl(p)) + '" target="_blank" rel="noopener" style="color:var(--accent2);text-decoration:none">' + esc(addr||'—') + '</a>'
-    +     (inspector(t) ? '<span>Inspector: <b>' + esc(inspector(t)) + '</b></span>' : '')
-    +   '</div>'
-    + '</div>'
-    + '<div class="insp-right"><div class="when">' + dateText + '</div><div>Milestone ' + (ms===999?'—':ms) + '</div></div>'
-    + '</div>';
-}
-
-function renderScheduled(){
-  const main = document.getElementById('main');
-  const scheduled = collectScheduled();
-  if (!scheduled.length){
-    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No upcoming inspections</h2><p>Nothing scheduled right now.</p></div>';
-    return;
-  }
-  let html = '<section class="ms-section"><div class="ms-header"><span class="ms-chip sched">Scheduled</span><h2>' + scheduled.length + ' upcoming inspection' + (scheduled.length===1?'':'s') + '</h2><span class="ms-count">(grouped by batch · soonest first)</span></div>';
-  const groups = groupByBatch(scheduled);
-  for (const g of groups){
-    const title = (g.batch == null) ? 'Unassigned (not in any batch)' : ('Batch ' + g.batch);
-    const headerClass = (g.batch == null) ? 'ready' : 'sched';
-    g.rows.sort((a,b) => a.when - b.when);
-    html += '<div style="margin:10px 0 18px">'
-      + '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px"><span class="ms-chip ' + headerClass + '">' + esc(title) + '</span>'
-      +   '<span style="color:var(--muted);font-size:12px">' + g.rows.length + ' inspection' + (g.rows.length===1?'':'s') + ' · next ' + shortDate(g.rows[0].when) + '</span></div>'
-      + '<div class="insp-list">' + g.rows.map(r => renderScheduledRow(r, 'sched')).join('') + '</div>'
-      + '</div>';
-  }
-  html += '</section>';
-  main.innerHTML = html;
-  applyFilter();
-}
-
-// ---------- Render This Week ----------
-function renderThisWeekRow({p,t,when}){
-  const taskDesc = getTaskDesc(t);
-  const addr = streetAddr(p);
-  const fullAddr = getAddr(p);
-  const ms = msOf(t);
-  const cls = statusClass(t);
-  // cls is 'done' for pass, 'rejected' for fail
-  const passed = cls === 'done';
-  const rd = getResultDisplay(t);
-  const pillClass = passed ? 'pill' : 'pill danger';
-  const pillText = rd || (passed ? 'PASS' : 'FAIL');
-  const rowKind = passed ? 'sched' : 'fail';
-  const notes = getComments(t).filter(c => c && c.text);
-  const notesHtml = (!passed && notes.length)
-    ? '<div class="insp-notes">' + notes.map(c => (
-        '<div class="insp-note"><span class="who">' + esc(c.by||'—') + '</span>'
-        + '<span class="on">' + esc(shortDateTime(c.date)) + '</span><br/>'
-        + esc(c.text) + '</div>'
-      )).join('') + '</div>'
-    : '';
-  const search = (fullAddr+' '+taskDesc+' '+inspector(t)+' '+rd).toLowerCase();
-  return '<div class="insp-row ' + rowKind + '" data-search="' + esc(search) + '">'
-    + '<div>'
-    +   '<div class="insp-top">'
-    +     '<span class="insp-task">' + esc(taskDesc) + '</span>'
-    +     '<span class="' + pillClass + '" style="' + (passed?'background:#052e1a;color:#86efac;border-color:#166534':'')  + '">' + esc(pillText) + '</span>'
-    +     (t.IsReinspection==='Y' ? ' <span class="pill reins">Reinspection</span>' : '')
-    +   '</div>'
-    +   '<div class="insp-meta">'
-    +     '<a class="insp-addr" href="' + esc(permitUrl(p)) + '" target="_blank" rel="noopener" style="color:var(--accent2);text-decoration:none">' + esc(addr||'—') + '</a>'
-    +     (inspector(t) ? '<span>Inspector: <b>' + esc(inspector(t)) + '</b></span>' : '')
-    +   '</div>'
-    + '</div>'
-    + '<div class="insp-right"><div class="when">' + shortDate(when) + '</div><div>Milestone ' + (ms===999?'—':ms) + '</div></div>'
-    + notesHtml
-    + '</div>';
-}
-
-// Group view for This Week: 'batch' or 'date'.
-let WEEK_GROUP = 'batch';
-
-function renderThisWeek(){
-  const main = document.getElementById('main');
-  const rows = collectThisWeek();
-  const {start, end} = weekBounds();
-  const endLabel = new Date(end); endLabel.setDate(endLabel.getDate()-1);
-  const range = shortDate(start) + ' – ' + shortDate(endLabel);
-  if (!rows.length){
-    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No inspections this week</h2><p>Nothing completed between ' + esc(range) + '.</p></div>';
-    return;
-  }
-  const passed = rows.filter(r => statusClass(r.t) === 'done').length;
-  const failed = rows.length - passed;
-  const filterBar =
-      '<div class="seg-toggle" style="margin-bottom:10px">'
-    +   '<button id="week-grp-batch" class="seg-btn ' + (WEEK_GROUP==='batch'?'active':'') + '">By Batch</button>'
-    +   '<button id="week-grp-date"  class="seg-btn ' + (WEEK_GROUP==='date' ?'active':'') + '">By Date</button>'
-    + '</div>';
-
-  const summaryNote = (WEEK_GROUP === 'batch') ? 'grouped by batch' : 'grouped by date · chronological';
-  let html = filterBar
-    + '<section class="ms-section"><div class="ms-header"><span class="ms-chip sched">This Week</span>'
-    + '<h2>' + rows.length + ' inspection' + (rows.length===1?'':'s') + ' completed</h2>'
-    + '<span class="ms-count">(' + range + ' · ' + passed + ' pass / ' + failed + ' fail · ' + summaryNote + ')</span></div>';
-
-  if (WEEK_GROUP === 'batch'){
-    const groups = groupByBatch(rows);
-    for (const g of groups){
-      const title = (g.batch == null) ? 'Unassigned (not in any batch)' : ('Batch ' + g.batch);
-      const passCnt = g.rows.filter(r => statusClass(r.t) === 'done').length;
-      const failCnt = g.rows.length - passCnt;
-      const headerClass = (g.batch == null) ? 'ready' : 'sched';
-      g.rows.sort((a,b) => b.when - a.when);
-      html += '<div style="margin:10px 0 18px">'
-        + '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px"><span class="ms-chip ' + headerClass + '">' + esc(title) + '</span>'
-        +   '<span style="color:var(--muted);font-size:12px">' + g.rows.length + ' inspection' + (g.rows.length===1?'':'s')
-        +   (passCnt?' · <span style="color:var(--ok)">'+passCnt+' pass</span>':'')
-        +   (failCnt?' · <span style="color:var(--err)">'+failCnt+' fail</span>':'')
-        + '</span></div>'
-        + '<div class="insp-list">' + g.rows.map(renderThisWeekRow).join('') + '</div>'
-        + '</div>';
-    }
-  } else {
-    // By date — bucket rows into local-day strings, oldest day first within
-    // the week so the user reads the week in chronological order.
-    const byDay = new Map();
-    for (const r of rows){
-      const d = new Date(r.when);
-      const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-      if (!byDay.has(key)) byDay.set(key, {date:d, rows:[]});
-      byDay.get(key).rows.push(r);
-    }
-    const days = [...byDay.entries()].sort((a,b) => a[0].localeCompare(b[0]));
-    for (const [key, g] of days){
-      const passCnt = g.rows.filter(r => statusClass(r.t) === 'done').length;
-      const failCnt = g.rows.length - passCnt;
-      const dayLabel = g.date.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
-      // Within a day, order earliest to latest (chronological).
-      g.rows.sort((a,b) => a.when - b.when);
-      html += '<div style="margin:10px 0 18px">'
-        + '<div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px"><span class="ms-chip sched">' + esc(dayLabel) + '</span>'
-        +   '<span style="color:var(--muted);font-size:12px">' + g.rows.length + ' inspection' + (g.rows.length===1?'':'s')
-        +   (passCnt?' · <span style="color:var(--ok)">'+passCnt+' pass</span>':'')
-        +   (failCnt?' · <span style="color:var(--err)">'+failCnt+' fail</span>':'')
-        + '</span></div>'
-        + '<div class="insp-list">' + g.rows.map(renderThisWeekRow).join('') + '</div>'
-        + '</div>';
-    }
-  }
-  html += '</section>';
-  main.innerHTML = html;
-  document.getElementById('week-grp-batch').onclick = () => { WEEK_GROUP='batch'; renderThisWeek(); };
-  document.getElementById('week-grp-date' ).onclick = () => { WEEK_GROUP='date';  renderThisWeek(); };
-  applyFilter();
-}
-
-// ---------- Notes & Flags ----------
-// Surfaces the three statuses we previously rendered as silent green passes:
-//   - PASSWNOTE: pass, but inspector left a note (continue but read)
-//   - PARTPASS:  partial pass, follow-up still required
-//   - INCOMPLETE: review marked done but with a blocking comment to your team
-// Each row carries the inspector comments so users get every detail.
-function collectNotesAndFlags(){
-  const out = [];
-  for (const p of allPermits()){
-    // Group by code so we can detect whether a subsequent task resolved an
-    // open item.
+    // Group by code so we can detect a later non-partial pass that resolves
+    // an earlier FAIL/INCOMPLETE/PARTIAL on the same step.
     const byCode = new Map();
     for (const t of (p.Tasks||[])){
       const c = t.TaskCode || '';
@@ -1651,164 +1331,205 @@ function collectNotesAndFlags(){
     }
     for (const t of (p.Tasks||[])){
       let kind = null;
-      if (isPassWithNote(t))      kind = 'passnote';
+      if (isFail(t))              kind = 'fail';
       else if (isPartialPass(t))  kind = 'partial';
       else if (isIncomplete(t))   kind = 'incomplete';
+      else if (isPassWithNote(t)) kind = 'passnote';
       if (!kind) continue;
       const code = t.TaskCode || '';
-      // A later non-partial pass on the same code closes the note.
+      const tDate = getCompleteDate(t) ? new Date(getCompleteDate(t)) : null;
+      // A later non-partial pass on the same code closes a fail/partial/incomplete.
       const completedAfter = (byCode.get(code) || []).filter(o =>
         o !== t &&
         passesGate(o) && !isPartialPass(o) &&
-        getCompleteDate(o) &&
-        new Date(getCompleteDate(o)) > new Date(getCompleteDate(t) || 0)
+        getCompleteDate(o) && tDate &&
+        new Date(getCompleteDate(o)) > tDate
       );
-      // Partial passes additionally auto-resolve when Paving clears: the
-      // user's mental model is that the inspector signs off the punch list
-      // when paving passes, so anything still flagged "partial" gets retired.
+      // Partial passes additionally retire when the permit's Paving clears.
       const pavingResolved = kind === 'partial' && p._pavingReleased;
-      const resolved = completedAfter.length > 0 || pavingResolved;
-      out.push({ p, t, kind, resolved, when: getCompleteDate(t) ? new Date(getCompleteDate(t)) : null });
+      // Pass-w-Note is informational — always considered noted/accepted.
+      const informational = kind === 'passnote';
+      const resolved = completedAfter.length > 0 || pavingResolved || informational;
+
+      // Bucket: Open first, then anything within the recent window, then past.
+      let bucket = 'past';
+      if (!resolved) bucket = 'open';
+      else if (tDate && (now - tDate.getTime()) <= recentMs) bucket = 'recent';
+
+      out.push({
+        p, t, code, kind, resolved, informational,
+        pavingResolved, when: tDate, bucket,
+        notes: getComments(t).filter(c => c && c.text),
+        inspector: inspector(t) || '',
+      });
     }
   }
-  // Open first, oldest first within each.
+  // Order: Open (oldest first — most stale), then Recent (newest first), then Past (newest first).
   out.sort((a,b) => {
-    if (a.resolved !== b.resolved) return a.resolved ? 1 : -1;
-    if (!a.when) return 1; if (!b.when) return -1;
-    if (a.resolved) return b.when - a.when; // resolved: newest first
-    return a.when - b.when;                 // open: oldest first (most stale at top)
+    const order = { open: 0, recent: 1, past: 2 };
+    const bo = order[a.bucket] - order[b.bucket];
+    if (bo !== 0) return bo;
+    if (!a.when) return 1;
+    if (!b.when) return -1;
+    return a.bucket === 'open' ? a.when - b.when : b.when - a.when;
   });
   return out;
 }
 
-let NOTES_VIEW = 'open'; // 'open' | 'all'
-let NOTES_KIND = 'all';  // 'all' | 'incomplete' | 'partial' | 'passnote'
+// Back-compat shim: anything that used to call collectFailed() / failureHistory()
+// now sees the open-only subset of the unified surface. Returns rows in the
+// same simple {p, t} shape collectFailed used to return.
+function collectFailed(){
+  return collectIssuesAndNotes()
+    .filter(r => r.bucket === 'open' && (r.kind === 'fail' || r.kind === 'partial'))
+    .map(r => ({ p: r.p, t: r.t }));
+}
 
-function renderNotes(){
+const ISSUE_KIND_META = {
+  fail:       { label: 'Failed',       chip: 'fail',  color: '#fca5a5', bg: '#3b0a0a', border: '#7f1d1d' },
+  partial:    { label: 'Partial Pass', chip: 'sched', color: '#86efac', bg: '#0f2f1a', border: '#166534' },
+  incomplete: { label: 'Incomplete',   chip: 'fail',  color: '#d8b4fe', bg: '#2a1245', border: '#7e22ce' },
+  passnote:   { label: 'Pass w/ Note', chip: 'ready', color: '#93c5fd', bg: '#0c2438', border: '#1d4ed8' },
+};
+
+function renderIssueRow(r){
+  const meta = ISSUE_KIND_META[r.kind] || ISSUE_KIND_META.fail;
+  const addr = streetAddr(r.p);
+  const dt = r.when ? shortDate(r.when) : '—';
+  const ageDays = r.when ? Math.floor((Date.now() - r.when.getTime()) / 86400000) : null;
+  const ageLabel = ageDays == null ? '' : (ageDays <= 0 ? 'today' : ageDays === 1 ? '1d ago' : ageDays + 'd ago');
+  const insp = r.inspector;
+  const notesHtml = r.notes.length
+    ? '<div class="fail-group-body">' + r.notes.map(c => (
+        '<div><span style="font-weight:600;color:#e2e8f0">' + esc(c.by||'—') + '</span> '
+        + '<span style="color:var(--muted);font-size:11px">' + esc(shortDateTime(c.date)) + '</span><br/>'
+        + esc(c.text) + '</div>'
+      )).join('') + '</div>'
+    : '';
+  const batch = batchOfPermit(r.p);
+  const batchChip = batch != null
+    ? '<span class="pill" style="margin-left:6px">Batch ' + esc(batch) + '</span>'
+    : '';
+  const stateTag = r.informational
+    ? '<span class="status-tag info">Noted</span>'
+    : r.resolved
+      ? '<span class="status-tag ok">' + (r.pavingResolved ? 'Resolved · Paving' : 'Resolved') + '</span>'
+      : '<span class="status-tag err">Open' + (ageDays != null && ageDays >= 3 ? ' · ' + ageDays + 'd' : '') + '</span>';
+  const search = (getAddr(r.p) + ' ' + getTaskDesc(r.t) + ' ' + insp + ' ' +
+                  r.notes.map(c => c.text).join(' ')).toLowerCase();
+  const kindPill = '<span class="pill" style="background:' + meta.bg + ';color:' + meta.color
+                  + ';border-color:' + meta.border + '">' + meta.label + '</span>';
+  return ''
+    + '<div class="fail-group ' + (r.resolved ? 'resolved' : '') + '" data-search="' + esc(search) + '">'
+    +   '<div class="fail-group-hdr">'
+    +     '<div style="flex:1 1 320px;min-width:0">'
+    +       '<div class="fail-task">' + kindPill + ' ' + esc(getTaskDesc(r.t) || r.t.TaskCode || '') + batchChip + '</div>'
+    +       '<div class="fail-sub">'
+    +         '<a href="' + esc(permitUrl(r.p)) + '" target="_blank" rel="noopener">' + esc(addr||'—') + '</a>'
+    +         ' · ' + esc(dt) + (ageLabel ? ' · <span style="color:var(--muted)">' + esc(ageLabel) + '</span>' : '')
+    +         (insp ? ' · Inspector: <b>' + esc(insp) + '</b>' : '')
+    +       '</div>'
+    +     '</div>'
+    +     '<div>' + stateTag + '</div>'
+    +   '</div>'
+    +   notesHtml
+    + '</div>';
+}
+
+function renderIssuesNotes(){
   const main = document.getElementById('main');
-  const all = collectNotesAndFlags();
+  if (!DATA){ main.innerHTML = '<div class="empty"><p>Load data first.</p></div>'; return; }
+  const all = collectIssuesAndNotes();
   if (!all.length){
-    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No inspector notes or flags</h2><p>Nothing currently marked Partial Pass, Pass w/ Note, or Incomplete.</p></div>';
+    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No issues or notes</h2><p>Nothing currently flagged for inspector attention.</p></div>';
     return;
   }
+  const open   = all.filter(r => r.bucket === 'open');
+  const recent = all.filter(r => r.bucket === 'recent' || r.bucket === 'open');
   const byKind = {
-    passnote:   all.filter(r => r.kind === 'passnote'),
+    fail:       all.filter(r => r.kind === 'fail'),
     partial:    all.filter(r => r.kind === 'partial'),
     incomplete: all.filter(r => r.kind === 'incomplete'),
+    passnote:   all.filter(r => r.kind === 'passnote'),
   };
-  const openCount = all.filter(r => !r.resolved).length;
-
+  const openByKind = {
+    fail:       open.filter(r => r.kind === 'fail').length,
+    partial:    open.filter(r => r.kind === 'partial').length,
+    incomplete: open.filter(r => r.kind === 'incomplete').length,
+  };
   const summary =
       '<div class="fail-summary">'
-    +   '<div class="card-compact"><div class="lbl">Total notes &amp; flags</div><div class="val">' + all.length + '</div></div>'
-    +   '<div class="card-compact"><div class="lbl">Still open</div><div class="val" style="color:' + (openCount?'var(--err)':'var(--muted)') + '">' + openCount + '</div></div>'
-    +   '<div class="card-compact"><div class="lbl">Partial passes</div><div class="val" style="color:#fbbf24">' + byKind.partial.length + '</div></div>'
-    +   '<div class="card-compact"><div class="lbl">Blocked intakes</div><div class="val" style="color:#d8b4fe">' + byKind.incomplete.length + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Open issues</div><div class="val" style="color:' + (open.length?'var(--err)':'var(--muted)') + '">' + open.length + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Failed (open)</div><div class="val" style="color:#fca5a5">' + openByKind.fail + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Partial (open)</div><div class="val" style="color:#86efac">' + openByKind.partial + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Incomplete (open)</div><div class="val" style="color:#d8b4fe">' + openByKind.incomplete + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Pass w/ note</div><div class="val" style="color:#93c5fd">' + byKind.passnote.length + '</div></div>'
     + '</div>';
 
-  // View toggle (Open vs All) and a kind filter row.
+  // Open / Recent / All segmented control
   const viewBar =
       '<div class="seg-toggle" style="margin-bottom:8px">'
-    +   '<button id="notes-view-open" class="seg-btn ' + (NOTES_VIEW==='open'?'active':'') + '">Open <span class="seg-count">' + openCount + '</span></button>'
-    +   '<button id="notes-view-all"  class="seg-btn ' + (NOTES_VIEW==='all' ?'active':'') + '">All <span class="seg-count">' + all.length + '</span></button>'
+    +   '<button id="issues-view-open"   class="seg-btn ' + (ISSUES_VIEW==='open'?'active':'') + '">Open <span class="seg-count">' + open.length + '</span></button>'
+    +   '<button id="issues-view-recent" class="seg-btn ' + (ISSUES_VIEW==='recent'?'active':'') + '">Recent <span class="seg-count">' + recent.length + '</span></button>'
+    +   '<button id="issues-view-all"    class="seg-btn ' + (ISSUES_VIEW==='all'?'active':'') + '">All <span class="seg-count">' + all.length + '</span></button>'
     + '</div>';
 
+  // Kind filter — wrap so it fits on small screens.
   const kindBar =
-      '<div class="seg-toggle" style="margin-bottom:14px">'
-    +   '<button id="notes-kind-all"        class="seg-btn ' + (NOTES_KIND==='all'       ?'active':'') + '">All kinds</button>'
-    +   '<button id="notes-kind-incomplete" class="seg-btn ' + (NOTES_KIND==='incomplete'?'active':'') + '">Blocked intake <span class="seg-count">' + byKind.incomplete.length + '</span></button>'
-    +   '<button id="notes-kind-partial"    class="seg-btn ' + (NOTES_KIND==='partial'   ?'active':'') + '">Partial pass <span class="seg-count">' + byKind.partial.length + '</span></button>'
-    +   '<button id="notes-kind-passnote"   class="seg-btn ' + (NOTES_KIND==='passnote'  ?'active':'') + '">Pass w/ note <span class="seg-count">' + byKind.passnote.length + '</span></button>'
+      '<div class="seg-toggle seg-toggle-wrap" style="margin-bottom:12px">'
+    +   '<button id="issues-kind-all"        class="seg-btn ' + (ISSUES_KIND==='all'?'active':'') + '">All kinds</button>'
+    +   '<button id="issues-kind-fail"       class="seg-btn ' + (ISSUES_KIND==='fail'?'active':'') + '">Failed <span class="seg-count">' + byKind.fail.length + '</span></button>'
+    +   '<button id="issues-kind-partial"    class="seg-btn ' + (ISSUES_KIND==='partial'?'active':'') + '">Partial <span class="seg-count">' + byKind.partial.length + '</span></button>'
+    +   '<button id="issues-kind-incomplete" class="seg-btn ' + (ISSUES_KIND==='incomplete'?'active':'') + '">Incomplete <span class="seg-count">' + byKind.incomplete.length + '</span></button>'
+    +   '<button id="issues-kind-passnote"   class="seg-btn ' + (ISSUES_KIND==='passnote'?'active':'') + '">Pass w/ note <span class="seg-count">' + byKind.passnote.length + '</span></button>'
     + '</div>';
 
   // Filter
   let rows = all;
-  if (NOTES_VIEW === 'open') rows = rows.filter(r => !r.resolved);
-  if (NOTES_KIND !== 'all')  rows = rows.filter(r => r.kind === NOTES_KIND);
+  if (ISSUES_VIEW === 'open')   rows = rows.filter(r => r.bucket === 'open');
+  else if (ISSUES_VIEW === 'recent') rows = rows.filter(r => r.bucket === 'recent' || r.bucket === 'open');
+  if (ISSUES_KIND !== 'all')    rows = rows.filter(r => r.kind === ISSUES_KIND);
 
-  // Build cards
-  function kindLabel(k){
-    return k === 'passnote' ? 'Pass w/ Note'
-      :    k === 'partial'  ? 'Partial Pass'
-      :    k === 'incomplete' ? 'Incomplete'
-      :    k;
-  }
-  function renderRow(r){
-    const { p, t, kind, resolved } = r;
-    const addr = streetAddr(p);
-    const dt = getCompleteDate(t) ? shortDate(getCompleteDate(t)) : '—';
-    const insp = inspector(t) || '';
-    const comments = getComments(t).filter(c => c && c.text);
-    const commentsHtml = comments.length
-      ? '<div class="attempt-notes" style="margin-top:6px">' + comments.map(c => (
-          '<div><span style="font-weight:600;color:#e2e8f0">' + esc(c.by||'—') + '</span> '
-          + '<span style="color:var(--muted);font-size:11px">' + esc(shortDateTime(c.date)) + '</span><br/>'
-          + esc(c.text) + '</div>'
-        )).join('') + '</div>'
-      : '<div style="color:var(--muted);font-size:12px;margin-top:4px">(No comment text in record.)</div>';
-    const kindCls = kind === 'incomplete' ? 'blocked' : kind === 'partial' ? 'partial' : 'note';
-    const kindBgStyle =
-        kind === 'partial'    ? 'background:#3a2a05;color:#fbbf24;border-color:#92400e' :
-        kind === 'incomplete' ? 'background:#2a1245;color:#d8b4fe;border-color:#7e22ce' :
-                                'background:#052e1a;color:#86efac;border-color:#166534';
-    const batch = batchOfPermit(p);
-    const batchChip = batch != null
-      ? '<span class="pill" style="margin-left:6px">Batch ' + esc(batch) + '</span>'
-      : '';
-    const resolvedTag = resolved
-      ? '<span class="status-tag ok">Resolved by later pass</span>'
-      : '<span class="status-tag err">Open</span>';
-    const search = (getAddr(p) + ' ' + getTaskDesc(t) + ' ' + insp + ' ' + comments.map(c => c.text).join(' ')).toLowerCase();
-    return ''
-      + '<div class="fail-group ' + (resolved?'resolved':'') + '" data-search="' + esc(search) + '">'
-      +   '<div class="fail-group-hdr">'
-      +     '<div style="flex:1 1 320px">'
-      +       '<div class="fail-task">' + esc(getTaskDesc(t) || t.TaskCode || '') + batchChip
-      +         '<span class="pill" style="margin-left:6px;' + kindBgStyle + '">' + kindLabel(kind) + '</span>'
-      +       '</div>'
-      +       '<div class="fail-sub">'
-      +         '<a href="' + esc(permitUrl(p)) + '" target="_blank" rel="noopener">' + esc(addr||'—') + '</a>'
-      +         ' · ' + esc(dt)
-      +         (insp ? ' · Inspector: <b>' + esc(insp) + '</b>' : '')
-      +       '</div>'
-      +     '</div>'
-      +     '<div>' + resolvedTag + '</div>'
-      +   '</div>'
-      +   '<div class="fail-group-body">' + commentsHtml + '</div>'
-      + '</div>';
-  }
-
+  // Helpful empty message that suggests switching the view if there's data
+  // somewhere in the unified set.
   let body = '';
   if (!rows.length){
-    body = '<div class="empty"><h2 style="color:var(--text)">Nothing matches</h2><p>Switch filters above to widen the view.</p></div>';
+    body = '<div class="empty"><h2 style="color:var(--text)">Nothing matches</h2><p>Widen the view or change the kind filter to see other items.</p></div>';
+  } else if (ISSUES_VIEW === 'recent') {
+    // Recent view: flat reverse-chrono timeline so newest activity stays on top.
+    body = '<section class="ms-section">'
+      + '<div class="ms-header"><span class="ms-chip sched">Last ' + ISSUES_RECENT_DAYS + ' days</span>'
+      +   '<h2>' + rows.length + ' event' + (rows.length===1?'':'s') + '</h2>'
+      +   '<span class="ms-count">' + open.length + ' still open</span>'
+      + '</div>'
+      + rows.map(renderIssueRow).join('')
+      + '</section>';
   } else {
-    // Group by kind for legibility, in priority order: blocked → partial → notes.
-    const order = ['incomplete','partial','passnote'];
-    for (const k of order){
-      const group = rows.filter(r => r.kind === k);
-      if (!group.length) continue;
-      const label = kindLabel(k);
-      const desc =
-          k === 'incomplete' ? 'Reviews marked complete in Cityworks but with blocking instructions from city staff.'
-        : k === 'partial'    ? 'Inspector approved part of the inspection. Remaining items still need a follow-up visit.'
-        :                      'Passed — but inspector left a punch list. Read and address before subsequent inspections.';
+    // Group by batch for easier triage of who's affected.
+    const byBatch = groupByBatch(rows.map(r => ({p:r.p, _r:r})));
+    for (const bg of byBatch){
+      const title = (bg.batch == null) ? 'Unassigned (no batch)' : ('Batch ' + bg.batch);
+      const openInBatch = bg.rows.filter(r => !r._r.resolved).length;
+      const chipClass = openInBatch ? 'fail' : 'sched';
       body += '<section class="ms-section">'
-        +   '<div class="ms-header"><span class="ms-chip ' + (k==='incomplete'?'fail':k==='partial'?'sched':'ready') + '">' + esc(label) + '</span>'
-        +     '<h2>' + group.length + ' item' + (group.length===1?'':'s') + '</h2>'
-        +     '<span class="ms-count">' + esc(desc) + '</span>'
-        +   '</div>'
-        +   group.map(renderRow).join('')
+        + '<div class="ms-header"><span class="ms-chip ' + chipClass + '">' + esc(title) + '</span>'
+        +   '<h2>' + bg.rows.length + ' item' + (bg.rows.length===1?'':'s') + '</h2>'
+        +   (openInBatch ? '<span class="ms-count" style="color:var(--err)">' + openInBatch + ' open</span>' : '<span class="ms-count" style="color:var(--ok)">all resolved</span>')
+        + '</div>'
+        + bg.rows.map(r => renderIssueRow(r._r)).join('')
         + '</section>';
     }
   }
 
   main.innerHTML = summary + viewBar + kindBar + body;
-  document.getElementById('notes-view-open').onclick = () => { NOTES_VIEW='open'; renderNotes(); };
-  document.getElementById('notes-view-all' ).onclick = () => { NOTES_VIEW='all';  renderNotes(); };
-  document.getElementById('notes-kind-all'       ).onclick = () => { NOTES_KIND='all';        renderNotes(); };
-  document.getElementById('notes-kind-incomplete').onclick = () => { NOTES_KIND='incomplete'; renderNotes(); };
-  document.getElementById('notes-kind-partial'   ).onclick = () => { NOTES_KIND='partial';    renderNotes(); };
-  document.getElementById('notes-kind-passnote'  ).onclick = () => { NOTES_KIND='passnote';   renderNotes(); };
+  document.getElementById('issues-view-open'  ).onclick = () => { ISSUES_VIEW='open';   renderIssuesNotes(); };
+  document.getElementById('issues-view-recent').onclick = () => { ISSUES_VIEW='recent'; renderIssuesNotes(); };
+  document.getElementById('issues-view-all'   ).onclick = () => { ISSUES_VIEW='all';    renderIssuesNotes(); };
+  document.getElementById('issues-kind-all'       ).onclick = () => { ISSUES_KIND='all';        renderIssuesNotes(); };
+  document.getElementById('issues-kind-fail'      ).onclick = () => { ISSUES_KIND='fail';       renderIssuesNotes(); };
+  document.getElementById('issues-kind-partial'   ).onclick = () => { ISSUES_KIND='partial';    renderIssuesNotes(); };
+  document.getElementById('issues-kind-incomplete').onclick = () => { ISSUES_KIND='incomplete'; renderIssuesNotes(); };
+  document.getElementById('issues-kind-passnote'  ).onclick = () => { ISSUES_KIND='passnote';   renderIssuesNotes(); };
   applyFilter();
 }
 
@@ -1948,6 +1669,24 @@ const DEFAULT_CYCLE_STAGES = [
 // inspection has passed — partial-pass results before Paving stay as partial
 // (green-tinted) but turn into a full green pass with no note after Paving.
 const PAVING_RELEASE_GATE_CODE = 'BPEN-PAVIN';
+
+// Map of pipeline TaskCode -> "is this chip currently visible?" (defaults true).
+// Lets the user hide individual inspection types they don't want to see today.
+// State lives only in memory — survives tab switches but not page refresh.
+const STAGE_VISIBLE = new Map(DEFAULT_CYCLE_STAGES.map(s => [s.code, true]));
+function isStageVisible(code){ return !STAGE_VISIBLE.has(code) || STAGE_VISIBLE.get(code); }
+function visibleStages(){ return DEFAULT_CYCLE_STAGES.filter(s => isStageVisible(s.code)); }
+
+// Density toggle. "compact" swaps each permit's workflow strip for a one-line
+// address row showing current stage; expanding a single row reveals the full
+// workflow on demand.
+let DENSITY = 'full';                 // 'full' | 'compact'
+const EXPANDED_PERMITS = new Set();   // CaObjectIds currently expanded in compact mode
+
+// Per-batch collapse state. Keys are batch IDs as strings. A batch where every
+// required pipeline stage is passed across all units defaults to collapsed.
+const BATCH_COLLAPSED = new Map();
+function batchCollapseKey(num){ return String(num); }
 
 // Persist custom selection across renders
 let CYCLE_FROM = 'BPB-SETBAC';
@@ -2598,18 +2337,46 @@ function renderReviews(){
 }
 
 // ---------- Main render ----------
+function renderStageChips(){
+  const row = document.getElementById('stage-chip-row');
+  if (!row) return;
+  const allOn = DEFAULT_CYCLE_STAGES.every(s => isStageVisible(s.code));
+  const html =
+      '<span class="chip-meta">Show:</span>'
+    + '<span class="stage-chip stage-chip-all" data-action="all">' + (allOn ? 'Hide all' : 'Show all') + '</span>'
+    + DEFAULT_CYCLE_STAGES.map(s => {
+        const on = isStageVisible(s.code);
+        return '<span class="stage-chip ' + (on ? '' : 'off') + '" data-code="' + esc(s.code) + '">'
+             + '<span class="stage-chip-dot"></span>' + esc(s.label) + '</span>';
+      }).join('');
+  row.innerHTML = html;
+  row.querySelectorAll('.stage-chip').forEach(el => {
+    el.onclick = () => {
+      const code = el.getAttribute('data-code');
+      const action = el.getAttribute('data-action');
+      if (action === 'all'){
+        const allOnNow = DEFAULT_CYCLE_STAGES.every(s => isStageVisible(s.code));
+        for (const s of DEFAULT_CYCLE_STAGES) STAGE_VISIBLE.set(s.code, !allOnNow);
+      } else if (code) {
+        STAGE_VISIBLE.set(code, !isStageVisible(code));
+      }
+      render();
+    };
+  });
+}
+
 function render(){
   // Refresh derived per-task flags (e.g. partial-pass paving-release) before
   // any of the tab renderers iterate the data.
   annotatePartialPassReleases();
+  renderStageChips();
   const stats = document.getElementById('stats');
   if (!DATA){
     stats.textContent = 'No data loaded';
     document.getElementById('main').innerHTML = '<div class="empty"><h2 style="color:var(--text)">No permits loaded</h2><p>Click <b>Fetch Live Data</b> or <b>Load JSON</b>.</p></div>';
-    document.getElementById('cnt-failed').textContent = '0';
+    document.getElementById('cnt-issues').textContent = '0';
     document.getElementById('cnt-sched').textContent = '0';
     document.getElementById('cnt-week').textContent = '0';
-    document.getElementById('cnt-notes').textContent = '0';
     document.getElementById('cnt-reviews').textContent = '0';
     return;
   }
@@ -2638,18 +2405,19 @@ function render(){
   const keep = fs.value;
   fs.innerHTML = '<option value="">All statuses</option>' + statuses.map(s => '<option ' + (s===keep?'selected':'') + '>' + esc(s) + '</option>').join('');
 
-  document.getElementById('cnt-failed').textContent = collectFailed().length;
+  // "Issues & Notes" badge: number of items in the Open view (still-blocking).
+  // Pass w/ Note doesn't add to this count anymore — it's informational only.
+  const issuesOpen = collectIssuesAndNotes().filter(r => r.bucket === 'open').length;
+  document.getElementById('cnt-issues').textContent = issuesOpen;
   document.getElementById('cnt-sched').textContent = collectScheduled().length;
   document.getElementById('cnt-week').textContent = collectThisWeek().length;
-  document.getElementById('cnt-notes').textContent = collectNotesAndFlags().length;
   document.getElementById('cnt-reviews').textContent = inReviewPermits().length;
 
   if (VIEW === 'batches') renderBatches();
   else if (VIEW === 'all') renderAll();
-  else if (VIEW === 'failed') renderFailed();
+  else if (VIEW === 'issues') renderIssuesNotes();
   else if (VIEW === 'scheduled') renderScheduled();
   else if (VIEW === 'thisweek') renderThisWeek();
-  else if (VIEW === 'notes') renderNotes();
   else if (VIEW === 'reviews') renderReviews();
   else if (VIEW === 'cycle') renderCycleTimes();
 }
@@ -2671,7 +2439,7 @@ function applyFilter(){
 
 function setTab(name){
   VIEW = name;
-  ['batches','all','failed','scheduled','thisweek','notes','reviews','cycle'].forEach(n => {
+  ['batches','all','issues','scheduled','thisweek','reviews','cycle'].forEach(n => {
     const b = document.getElementById('tab-' + n);
     if (b) b.classList.toggle('active', n === name);
   });
@@ -2725,16 +2493,23 @@ document.getElementById('btn-fetch').onclick = tryFetch;
 document.getElementById('btn-help').onclick = openModal;
 document.getElementById('btn-help2').onclick = openModal;
 document.getElementById('btn-load').onclick = () => document.getElementById('file-input').click();
+// Density toggle: 'full' (workflow strips) <-> 'compact' (one-line address rows).
+document.getElementById('btn-density').onclick = () => {
+  DENSITY = (DENSITY === 'full') ? 'compact' : 'full';
+  const btn = document.getElementById('btn-density');
+  btn.textContent = (DENSITY === 'compact') ? 'Full view' : 'Compact view';
+  btn.classList.toggle('active', DENSITY === 'compact');
+  render();
+};
 document.getElementById('file-input').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   try { DATA = JSON.parse(await f.text()); render(); } catch(err){ alert('Could not parse JSON: '+err.message); }
 };
 document.getElementById('tab-batches').onclick  = () => setTab('batches');
 document.getElementById('tab-all').onclick      = () => setTab('all');
-document.getElementById('tab-failed').onclick   = () => setTab('failed');
+document.getElementById('tab-issues').onclick   = () => setTab('issues');
 document.getElementById('tab-scheduled').onclick= () => setTab('scheduled');
 document.getElementById('tab-thisweek').onclick = () => setTab('thisweek');
-document.getElementById('tab-notes').onclick    = () => setTab('notes');
 document.getElementById('tab-reviews').onclick  = () => setTab('reviews');
 document.getElementById('tab-cycle').onclick    = () => setTab('cycle');
 document.getElementById('search').addEventListener('input', applyFilter);
