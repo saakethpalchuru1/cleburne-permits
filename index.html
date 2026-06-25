@@ -1566,49 +1566,86 @@ function groupByMilestone(rows){
   return [...groups.keys()].sort((a, b) => a - b).map(k => ({ m: k, rows: groups.get(k) }));
 }
 
-// Every upcoming (not-yet-completed) inspection that has a target date.
+// Scheduled = an inspection that has a target/available date and is not yet
+// completed. We carry an `overdue` flag so the tab can visually flag rows
+// whose target date is in the past but no inspector has closed them out.
 function collectScheduled(){
   const out = [];
+  const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
   for (const p of allPermits()){
     for (const t of (p.Tasks||[])){
       if (!isInspection(t)) continue;
-      if (getCompleteFlag(t) === 'Y') continue;
+      if (getCompleteFlag(t) === 'Y') continue;       // already happened — skip
       const target = getTargetDate(t);
-      if (!target) continue;
-      out.push({ p, t, target: new Date(target) });
+      const avail  = t.TaskAvailableDate;
+      // Prefer TargetStartDate; fall back to TaskAvailableDate so newly-released
+      // inspections without a scheduled visit still appear.
+      const when = target ? new Date(target) : (avail ? new Date(avail) : null);
+      if (!when) continue;
+      const overdue = when < startOfToday;
+      out.push({ p, t, target: when, overdue, isAvail: !target && !!avail });
     }
   }
   out.sort((a, b) => a.target - b.target);
   return out;
 }
 
-// Upcoming inspections whose target date falls in the current Mon–Sun week.
+// Inspections COMPLETED in the current Mon–Sun week — i.e., what the field
+// actually did this week, with whatever outcome the inspector logged.
 function collectThisWeek(){
-  const all = collectScheduled();
+  const out = [];
   const now = new Date();
-  const monday = new Date(now); monday.setHours(0, 0, 0, 0);
-  // Day shift so Monday is the start (JS getDay: 0=Sun..6=Sat)
-  const dow = monday.getDay();
-  monday.setDate(monday.getDate() - ((dow + 6) % 7));
+  const monday = new Date(now); monday.setHours(0,0,0,0);
+  const dow = monday.getDay();                         // 0=Sun..6=Sat
+  monday.setDate(monday.getDate() - ((dow + 6) % 7));  // back up to Monday
   const nextMonday = new Date(monday); nextMonday.setDate(monday.getDate() + 7);
-  return all.filter(r => r.target >= monday && r.target < nextMonday);
+  for (const p of allPermits()){
+    for (const t of (p.Tasks||[])){
+      if (!isInspection(t)) continue;
+      if (getCompleteFlag(t) !== 'Y') continue;
+      const d = getCompleteDate(t);
+      if (!d) continue;
+      const when = new Date(d);
+      if (when < monday || when >= nextMonday) continue;
+      // Classify outcome so each row can show the right pill/color.
+      let kind;
+      if (isFail(t))              kind = 'fail';
+      else if (isPartialPass(t))  kind = 'partial';
+      else if (isIncomplete(t))   kind = 'incomplete';
+      else if (isPassWithNote(t)) kind = 'passnote';
+      else                        kind = 'pass';
+      out.push({
+        p, t, when, kind,
+        notes: getComments(t).filter(c => c && c.text),
+        inspector: inspector(t) || '',
+      });
+    }
+  }
+  // Newest first within the week — what shipped today should float to the top.
+  out.sort((a, b) => b.when - a.when);
+  return out;
 }
 
+// One row for a scheduled-but-not-yet-done inspection.
 function renderSchedRow(r){
   const addr = streetAddr(r.p);
   const desc = getTaskDesc(r.t) || r.t.TaskCode || '';
-  const date = shortDate(r.target);
+  const dateLabel = (r.isAvail ? 'Available ' : '') + shortDate(r.target);
+  const overdueTag = r.overdue
+    ? ' <span class="pill" style="background:#3b0a0a;color:#fca5a5;border-color:#7f1d1d;margin-left:6px">Overdue</span>'
+    : '';
   const search = (getAddr(r.p) + ' ' + desc + ' ' + (r.p.CaseNumber || '')).toLowerCase();
+  const cls = r.overdue ? 'fail' : 'sched';
   return ''
-    + '<div class="insp-row sched" data-search="' + esc(search) + '">'
+    + '<div class="insp-row ' + cls + '" data-search="' + esc(search) + '">'
     +   '<div>'
     +     '<div class="insp-top">'
-    +       '<span class="insp-task">' + esc(desc) + '</span>'
+    +       '<span class="insp-task">' + esc(desc) + '</span>' + overdueTag
     +       '<span class="insp-case"><a href="' + esc(permitUrl(r.p)) + '" target="_blank" rel="noopener">' + esc(r.p.CaseNumber || '') + '</a></span>'
     +     '</div>'
     +     '<div class="insp-addr">' + esc(addr || '—') + '</div>'
     +   '</div>'
-    +   '<div class="insp-right"><div class="when">' + esc(date) + '</div></div>'
+    +   '<div class="insp-right"><div class="when">' + esc(dateLabel) + '</div></div>'
     + '</div>';
 }
 
@@ -1616,16 +1653,25 @@ function renderScheduled(){
   const main = document.getElementById('main');
   const rows = collectScheduled();
   if (!rows.length){
-    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No scheduled inspections</h2></div>';
+    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No scheduled inspections</h2><p>Nothing currently scheduled that hasn\'t happened yet.</p></div>';
     return;
   }
+  const overdueCount = rows.filter(r => r.overdue).length;
+  const summary =
+      '<div class="fail-summary" style="margin-bottom:12px">'
+    +   '<div class="card-compact"><div class="lbl">Scheduled total</div><div class="val">' + rows.length + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Overdue</div><div class="val" style="color:' + (overdueCount?'var(--err)':'var(--muted)') + '">' + overdueCount + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Upcoming</div><div class="val" style="color:var(--curr)">' + (rows.length - overdueCount) + '</div></div>'
+    + '</div>';
   const groups = groupByBatch(rows);
-  let body = '';
+  let body = summary;
   for (const bg of groups){
     const title = bg.batch == null ? 'Unassigned' : ('Batch ' + bg.batch);
+    const overdueInBatch = bg.rows.filter(r => r.overdue).length;
     body += '<section class="ms-section">'
-      + '<div class="ms-header"><span class="ms-chip sched">' + esc(title) + '</span>'
-      +   '<h2>' + bg.rows.length + ' upcoming</h2>'
+      + '<div class="ms-header"><span class="ms-chip ' + (overdueInBatch?'fail':'sched') + '">' + esc(title) + '</span>'
+      +   '<h2>' + bg.rows.length + ' scheduled</h2>'
+      +   (overdueInBatch ? '<span class="ms-count" style="color:var(--err)">' + overdueInBatch + ' overdue</span>' : '')
       + '</div>'
       + bg.rows.map(renderSchedRow).join('')
       + '</section>';
@@ -1634,55 +1680,131 @@ function renderScheduled(){
   applyFilter();
 }
 
-let THISWEEK_VIEW = 'date'; // 'batch' | 'date'
+// ---------- This Week (completed) ----------
+let THISWEEK_VIEW = 'date'; // 'date' | 'batch' | 'outcome'
+
+const THISWEEK_KIND_META = {
+  pass:       { label: 'Pass',         chip: 'ready', color: '#86efac', bg: '#052e1a', border: '#166534' },
+  passnote:   { label: 'Pass w/ Note', chip: 'ready', color: '#93c5fd', bg: '#0c2438', border: '#1d4ed8' },
+  partial:    { label: 'Partial Pass', chip: 'sched', color: '#86efac', bg: '#0f2f1a', border: '#166534' },
+  fail:       { label: 'Failed',       chip: 'fail',  color: '#fca5a5', bg: '#3b0a0a', border: '#7f1d1d' },
+  incomplete: { label: 'Incomplete',   chip: 'fail',  color: '#d8b4fe', bg: '#2a1245', border: '#7e22ce' },
+};
+
+function renderThisWeekRow(r){
+  const meta = THISWEEK_KIND_META[r.kind] || THISWEEK_KIND_META.pass;
+  const addr = streetAddr(r.p);
+  const desc = getTaskDesc(r.t) || r.t.TaskCode || '';
+  const when = shortDate(r.when);
+  const insp = r.inspector;
+  const batch = batchOfPermit(r.p);
+  const batchChip = batch != null ? '<span class="pill" style="margin-left:6px">Batch ' + esc(batch) + '</span>' : '';
+  const kindPill = '<span class="pill" style="background:' + meta.bg + ';color:' + meta.color
+                  + ';border-color:' + meta.border + '">' + meta.label + '</span>';
+  const notesHtml = r.notes.length
+    ? '<div class="fail-group-body" style="margin-top:8px">' + r.notes.map(c => (
+        '<div><span style="font-weight:600;color:#e2e8f0">' + esc(c.by||'—') + '</span> '
+        + '<span style="color:var(--muted);font-size:11px">' + esc(shortDateTime(c.date)) + '</span><br/>'
+        + esc(c.text) + '</div>'
+      )).join('') + '</div>'
+    : '';
+  const search = (getAddr(r.p) + ' ' + desc + ' ' + insp + ' ' + r.notes.map(c=>c.text).join(' ')).toLowerCase();
+  return ''
+    + '<div class="fail-group ' + (r.kind==='fail'?'':'resolved') + '" data-search="' + esc(search) + '">'
+    +   '<div class="fail-group-hdr">'
+    +     '<div style="flex:1 1 320px;min-width:0">'
+    +       '<div class="fail-task">' + kindPill + ' ' + esc(desc) + batchChip + '</div>'
+    +       '<div class="fail-sub">'
+    +         '<a href="' + esc(permitUrl(r.p)) + '" target="_blank" rel="noopener">' + esc(addr||'—') + '</a>'
+    +         ' · ' + esc(when)
+    +         (insp ? ' · Inspector: <b>' + esc(insp) + '</b>' : '')
+    +       '</div>'
+    +     '</div>'
+    +   '</div>'
+    +   notesHtml
+    + '</div>';
+}
 
 function renderThisWeek(){
   const main = document.getElementById('main');
   const rows = collectThisWeek();
   if (!rows.length){
-    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No inspections this week</h2></div>';
+    main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No inspections completed this week</h2><p>Nothing has been closed out by an inspector since Monday.</p></div>';
     return;
   }
+  const counts = { pass:0, passnote:0, partial:0, fail:0, incomplete:0 };
+  for (const r of rows) counts[r.kind] = (counts[r.kind]||0) + 1;
+  const summary =
+      '<div class="fail-summary" style="margin-bottom:12px">'
+    +   '<div class="card-compact"><div class="lbl">Inspections this week</div><div class="val">' + rows.length + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Passed</div><div class="val" style="color:#86efac">' + counts.pass + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Pass w/ note</div><div class="val" style="color:#93c5fd">' + counts.passnote + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Partial</div><div class="val" style="color:#86efac">' + counts.partial + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Failed</div><div class="val" style="color:#fca5a5">' + counts.fail + '</div></div>'
+    +   '<div class="card-compact"><div class="lbl">Incomplete</div><div class="val" style="color:#d8b4fe">' + counts.incomplete + '</div></div>'
+    + '</div>';
+
   const segBar =
       '<div class="seg-toggle" style="margin-bottom:10px">'
-    +   '<button id="tw-view-batch" class="seg-btn ' + (THISWEEK_VIEW==='batch'?'active':'') + '">By Batch</button>'
-    +   '<button id="tw-view-date"  class="seg-btn ' + (THISWEEK_VIEW==='date' ?'active':'') + '">By Date</button>'
+    +   '<button id="tw-view-date"    class="seg-btn ' + (THISWEEK_VIEW==='date'?'active':'')    + '">By Date</button>'
+    +   '<button id="tw-view-batch"   class="seg-btn ' + (THISWEEK_VIEW==='batch'?'active':'')   + '">By Batch</button>'
+    +   '<button id="tw-view-outcome" class="seg-btn ' + (THISWEEK_VIEW==='outcome'?'active':'') + '">By Outcome</button>'
     + '</div>';
+
   let body = '';
   if (THISWEEK_VIEW === 'batch'){
-    const groups = groupByBatch(rows);
+    const groups = groupByBatch(rows.map(r => ({ p: r.p, _r: r })));
     for (const bg of groups){
       const title = bg.batch == null ? 'Unassigned' : ('Batch ' + bg.batch);
+      const failInBatch = bg.rows.filter(r => r._r.kind === 'fail').length;
       body += '<section class="ms-section">'
-        + '<div class="ms-header"><span class="ms-chip sched">' + esc(title) + '</span>'
-        +   '<h2>' + bg.rows.length + ' this week</h2>'
+        + '<div class="ms-header"><span class="ms-chip ' + (failInBatch?'fail':'sched') + '">' + esc(title) + '</span>'
+        +   '<h2>' + bg.rows.length + ' inspection' + (bg.rows.length===1?'':'s') + '</h2>'
+        +   (failInBatch ? '<span class="ms-count" style="color:var(--err)">' + failInBatch + ' failed</span>' : '')
         + '</div>'
-        + bg.rows.map(renderSchedRow).join('')
+        + bg.rows.map(r => renderThisWeekRow(r._r)).join('')
+        + '</section>';
+    }
+  } else if (THISWEEK_VIEW === 'outcome'){
+    const order = ['fail','incomplete','partial','passnote','pass'];
+    for (const k of order){
+      const group = rows.filter(r => r.kind === k);
+      if (!group.length) continue;
+      const meta = THISWEEK_KIND_META[k];
+      body += '<section class="ms-section">'
+        + '<div class="ms-header"><span class="ms-chip ' + meta.chip + '">' + esc(meta.label) + '</span>'
+        +   '<h2>' + group.length + ' inspection' + (group.length===1?'':'s') + '</h2>'
+        + '</div>'
+        + group.map(renderThisWeekRow).join('')
         + '</section>';
     }
   } else {
-    // Group by ymd date so each day reads as a daily run-of-show.
+    // By Date: most recent day first, then row-level ordering by completion time desc.
     const byDate = new Map();
     for (const r of rows){
-      const k = ymd(r.target);
+      const k = ymd(r.when);
       if (!byDate.has(k)) byDate.set(k, []);
       byDate.get(k).push(r);
     }
-    const dateKeys = [...byDate.keys()].sort();
+    const dateKeys = [...byDate.keys()].sort().reverse();
     for (const k of dateKeys){
       const group = byDate.get(k);
       const label = shortDate(new Date(k));
+      const failHere = group.filter(r => r.kind === 'fail').length;
       body += '<section class="ms-section">'
-        + '<div class="ms-header"><span class="ms-chip sched">' + esc(label) + '</span>'
+        + '<div class="ms-header"><span class="ms-chip ' + (failHere?'fail':'sched') + '">' + esc(label) + '</span>'
         +   '<h2>' + group.length + ' inspection' + (group.length===1?'':'s') + '</h2>'
+        +   (failHere ? '<span class="ms-count" style="color:var(--err)">' + failHere + ' failed</span>' : '')
         + '</div>'
-        + group.map(renderSchedRow).join('')
+        + group.map(renderThisWeekRow).join('')
         + '</section>';
     }
   }
-  main.innerHTML = segBar + body;
-  document.getElementById('tw-view-batch').onclick = () => { THISWEEK_VIEW='batch'; renderThisWeek(); };
-  document.getElementById('tw-view-date' ).onclick = () => { THISWEEK_VIEW='date';  renderThisWeek(); };
+
+  main.innerHTML = summary + segBar + body;
+  document.getElementById('tw-view-date'   ).onclick = () => { THISWEEK_VIEW='date';    renderThisWeek(); };
+  document.getElementById('tw-view-batch'  ).onclick = () => { THISWEEK_VIEW='batch';   renderThisWeek(); };
+  document.getElementById('tw-view-outcome').onclick = () => { THISWEEK_VIEW='outcome'; renderThisWeek(); };
   applyFilter();
 }
 
