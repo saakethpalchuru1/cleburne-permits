@@ -1566,9 +1566,9 @@ function groupByMilestone(rows){
   return [...groups.keys()].sort((a, b) => a - b).map(k => ({ m: k, rows: groups.get(k) }));
 }
 
-// Scheduled = an inspection that has a target/available date and is not yet
-// completed. We carry an `overdue` flag so the tab can visually flag rows
-// whose target date is in the past but no inspector has closed them out.
+// Scheduled = inspections that have a target/available date in the future
+// (today or later) AND haven't been completed. Past-dated rows are stale
+// scheduling artifacts from old runs, not useful field-day info.
 function collectScheduled(){
   const out = [];
   const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
@@ -1582,8 +1582,8 @@ function collectScheduled(){
       // inspections without a scheduled visit still appear.
       const when = target ? new Date(target) : (avail ? new Date(avail) : null);
       if (!when) continue;
-      const overdue = when < startOfToday;
-      out.push({ p, t, target: when, overdue, isAvail: !target && !!avail });
+      if (when < startOfToday) continue;              // drop overdue / stale rows
+      out.push({ p, t, target: when, isAvail: !target && !!avail });
     }
   }
   out.sort((a, b) => a.target - b.target);
@@ -1631,16 +1631,12 @@ function renderSchedRow(r){
   const addr = streetAddr(r.p);
   const desc = getTaskDesc(r.t) || r.t.TaskCode || '';
   const dateLabel = (r.isAvail ? 'Available ' : '') + shortDate(r.target);
-  const overdueTag = r.overdue
-    ? ' <span class="pill" style="background:#3b0a0a;color:#fca5a5;border-color:#7f1d1d;margin-left:6px">Overdue</span>'
-    : '';
   const search = (getAddr(r.p) + ' ' + desc + ' ' + (r.p.CaseNumber || '')).toLowerCase();
-  const cls = r.overdue ? 'fail' : 'sched';
   return ''
-    + '<div class="insp-row ' + cls + '" data-search="' + esc(search) + '">'
+    + '<div class="insp-row sched" data-search="' + esc(search) + '">'
     +   '<div>'
     +     '<div class="insp-top">'
-    +       '<span class="insp-task">' + esc(desc) + '</span>' + overdueTag
+    +       '<span class="insp-task">' + esc(desc) + '</span>'
     +       '<span class="insp-case"><a href="' + esc(permitUrl(r.p)) + '" target="_blank" rel="noopener">' + esc(r.p.CaseNumber || '') + '</a></span>'
     +     '</div>'
     +     '<div class="insp-addr">' + esc(addr || '—') + '</div>'
@@ -1656,22 +1652,13 @@ function renderScheduled(){
     main.innerHTML = '<div class="empty"><h2 style="color:var(--text)">No scheduled inspections</h2><p>Nothing currently scheduled that hasn\'t happened yet.</p></div>';
     return;
   }
-  const overdueCount = rows.filter(r => r.overdue).length;
-  const summary =
-      '<div class="fail-summary" style="margin-bottom:12px">'
-    +   '<div class="card-compact"><div class="lbl">Scheduled total</div><div class="val">' + rows.length + '</div></div>'
-    +   '<div class="card-compact"><div class="lbl">Overdue</div><div class="val" style="color:' + (overdueCount?'var(--err)':'var(--muted)') + '">' + overdueCount + '</div></div>'
-    +   '<div class="card-compact"><div class="lbl">Upcoming</div><div class="val" style="color:var(--curr)">' + (rows.length - overdueCount) + '</div></div>'
-    + '</div>';
   const groups = groupByBatch(rows);
-  let body = summary;
+  let body = '';
   for (const bg of groups){
     const title = bg.batch == null ? 'Unassigned' : ('Batch ' + bg.batch);
-    const overdueInBatch = bg.rows.filter(r => r.overdue).length;
     body += '<section class="ms-section">'
-      + '<div class="ms-header"><span class="ms-chip ' + (overdueInBatch?'fail':'sched') + '">' + esc(title) + '</span>'
+      + '<div class="ms-header"><span class="ms-chip sched">' + esc(title) + '</span>'
       +   '<h2>' + bg.rows.length + ' scheduled</h2>'
-      +   (overdueInBatch ? '<span class="ms-count" style="color:var(--err)">' + overdueInBatch + ' overdue</span>' : '')
       + '</div>'
       + bg.rows.map(renderSchedRow).join('')
       + '</section>';
