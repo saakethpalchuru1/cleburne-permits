@@ -25,50 +25,102 @@ if (!USERNAME || !PASSWORD) {
 const DEBUG_DIR = path.join(__dirname, '..', 'debug');
 fs.mkdirSync(DEBUG_DIR, { recursive: true });
 
-// ---- Optional: push data/latest.json to GitHub via the Contents API ----
+// ---- GitHub Contents API helpers ----
 // Enabled when both env vars are set (e.g. on Render). GitHub Actions doesn't
 // set these, so it keeps using its built-in `git commit` step.
-async function pushToGitHub(payload) {
-  const token  = process.env.GITHUB_TOKEN;
-  const repo   = process.env.GITHUB_REPO;      // 'owner/name'
-  const branch = process.env.GITHUB_BRANCH || 'main';
-  const file   = process.env.GITHUB_FILE_PATH || 'data/latest.json';
-  if (!token || !repo) return false;
+const GITHUB_TOKEN  = process.env.GITHUB_TOKEN;
+const GITHUB_REPO   = process.env.GITHUB_REPO;   // 'owner/name'
+const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main';
+const LOCK_FILE     = 'data/auth-lockout.json';  // kill-switch marker
 
-  const apiUrl = `https://api.github.com/repos/${repo}/contents/${file}`;
-  const hdrs = {
-    'Authorization': `Bearer ${token}`,
+function ghHeaders() {
+  return {
+    'Authorization': `Bearer ${GITHUB_TOKEN}`,
     'Accept': 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
     'User-Agent': 'cleburne-permits-refresher',
   };
+}
 
-  // GET current SHA so the PUT can replace the existing file.
+async function ghPutJson(filePath, obj, message) {
+  const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/${filePath}`;
+  // GET current SHA so the PUT replaces (not conflicts with) the existing file.
   let sha = null;
-  const getResp = await fetch(`${apiUrl}?ref=${encodeURIComponent(branch)}`, { headers: hdrs });
+  const getResp = await fetch(`${apiUrl}?ref=${encodeURIComponent(GITHUB_BRANCH)}`, { headers: ghHeaders() });
   if (getResp.ok) {
     const cur = await getResp.json();
     sha = cur && cur.sha;
   } else if (getResp.status !== 404) {
     throw new Error(`GitHub GET ${getResp.status}: ${await getResp.text()}`);
   }
-
   const body = {
-    message: `chore: refresh permits data (${new Date().toISOString()})`,
-    content: Buffer.from(JSON.stringify(payload)).toString('base64'),
-    branch,
+    message: message || `chore: update ${filePath}`,
+    content: Buffer.from(JSON.stringify(obj, null, 2)).toString('base64'),
+    branch: GITHUB_BRANCH,
   };
   if (sha) body.sha = sha;
-
   const putResp = await fetch(apiUrl, {
     method: 'PUT',
-    headers: { ...hdrs, 'Content-Type': 'application/json' },
+    headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
   if (!putResp.ok) {
-    throw new Error(`GitHub PUT ${putResp.status}: ${await putResp.text()}`);
+    throw new Error(`GitHub PUT ${filePath} ${putResp.status}: ${await putResp.text()}`);
   }
-  console.log(`Pushed ${file} to ${repo}@${branch}`);
+}
+
+// Check the repo for a kill-switch marker. If present with `locked: true`,
+// we bail out immediately WITHOUT touching the login form — this prevents a
+// bad-password state (e.g. after a password rotation the user forgot to sync)
+// from repeatedly hitting the login endpoint and getting the account locked
+// out of the city website. To clear it: delete data/auth-lockout.json from the
+// repo (Actions won't run, but the file is small — one click in the GitHub UI).
+async function isAuthLockedOut() {
+  if (!GITHUB_TOKEN || !GITHUB_REPO) return null; // no repo — can't check
+  const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/${LOCK_FILE}?ref=${encodeURIComponent(GITHUB_BRANCH)}`;
+  try {
+    const resp = await fetch(apiUrl, { headers: ghHeaders() });
+    if (resp.status === 404) return null;
+    if (!resp.ok) return null; // fail-open on transient errors
+    const body = await resp.json();
+    // Contents API returns base64-encoded content.
+    const decoded = JSON.parse(Buffer.from(body.content || '', 'base64').toString('utf-8'));
+    return decoded && decoded.locked === true ? decoded : null;
+  } catch (e) {
+    console.log('[lockout] check failed (fail-open):', e.message);
+    return null;
+  }
+}
+
+async function writeAuthLockout(reason) {
+  if (!GITHUB_TOKEN || !GITHUB_REPO) {
+    console.log('[lockout] no GitHub creds — cannot persist lockout marker.');
+    return;
+  }
+  const payload = {
+    locked: true,
+    at: new Date().toISOString(),
+    reason,
+    howToClear:
+      'Update CITYWORKS_PASSWORD in Render env vars to the correct value, then DELETE ' +
+      `${LOCK_FILE} from the ${GITHUB_REPO} repo. The next scheduled cron run (or a manual Trigger Run) ` +
+      'will resume normally.',
+  };
+  try {
+    await ghPutJson(LOCK_FILE, payload,
+      `chore: freeze auth — ${reason.slice(0, 60)} (${new Date().toISOString()})`);
+    console.log(`[lockout] wrote ${LOCK_FILE} to ${GITHUB_REPO} — future runs will short-circuit.`);
+  } catch (e) {
+    console.error('[lockout] failed to write marker:', e.message);
+  }
+}
+
+// Back-compat name for the data-push callsite at the bottom of this file.
+async function pushToGitHub(payload) {
+  if (!GITHUB_TOKEN || !GITHUB_REPO) return false;
+  const file = process.env.GITHUB_FILE_PATH || 'data/latest.json';
+  await ghPutJson(file, payload, `chore: refresh permits data (${new Date().toISOString()})`);
+  console.log(`Pushed ${file} to ${GITHUB_REPO}@${GITHUB_BRANCH}`);
   return true;
 }
 
@@ -85,6 +137,20 @@ async function dumpDebug(page, tag) {
 }
 
 (async () => {
+  // ---- Step 0: Kill switch — bail before touching the login form if a
+  // previous run flagged an auth failure. Prevents hourly retries from getting
+  // the Cityworks account locked out after a password change goes unsynced.
+  const lockedRecord = await isAuthLockedOut();
+  if (lockedRecord) {
+    console.log('=========================================================');
+    console.log('AUTH LOCKOUT ACTIVE — skipping this run.');
+    console.log(`  Marker written at: ${lockedRecord.at}`);
+    console.log(`  Reason: ${lockedRecord.reason}`);
+    console.log(`  To resume: delete ${LOCK_FILE} from ${GITHUB_REPO}.`);
+    console.log('=========================================================');
+    process.exit(0);   // exit(0) so Render doesn't flag it as a failed run
+  }
+
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 1400, height: 900 },
@@ -94,6 +160,9 @@ async function dumpDebug(page, tag) {
   const page = await context.newPage();
   page.on('console', msg => console.log(`[page-console:${msg.type()}]`, msg.text()));
 
+  // ---- Login. Wrapped in try/catch so any failure here writes the kill-switch
+  // marker + exits, instead of letting the cron hammer the site every hour.
+  try {
   // ---- Step 1: Sign in ----
   console.log('Going to', LOGIN_URL);
   await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -170,6 +239,17 @@ async function dumpDebug(page, tag) {
     await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
   }
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  } catch (loginErr) {
+    // Anything failing between the goto and the post-login URL check is treated
+    // as an auth-level failure: bad credentials, MFA prompt, site rejecting
+    // our headless UA, etc. All roads lead to "stop trying until a human
+    // clears the marker."
+    console.error('Auth failure during login step:', loginErr.message);
+    await dumpDebug(page, 'auth-failure').catch(() => {});
+    await writeAuthLockout(loginErr.message).catch(() => {});
+    await browser.close().catch(() => {});
+    process.exit(1);
+  }
 
   // ---- Step 2: Run the data pull inside the page context ----
   console.log('Fetching permits + plumbing/electrical sub-permits...');
