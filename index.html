@@ -1577,9 +1577,18 @@ function groupByMilestone(rows){
   return [...groups.keys()].sort((a, b) => a - b).map(k => ({ m: k, rows: groups.get(k) }));
 }
 
-// Scheduled = inspections that have a target/available date in the future
-// (today or later) AND haven't been completed. Past-dated rows are stale
-// scheduling artifacts from old runs, not useful field-day info.
+// Scheduled = inspections that actually have a scheduled visit on the calendar
+// (TargetStartDate today or later) AND haven't been completed yet.
+//
+// We deliberately DON'T fall back to TaskAvailableDate anymore: when Cityworks
+// fails an inspection it immediately spawns a reinspection task with
+// TaskAvailableDate=today but no TargetStartDate, and those "available but not
+// yet booked" rows were showing up in Scheduled as "Available (today)" right
+// after the fail — which read like the original inspection was still on the
+// calendar. Passing inspections don't spawn a follow-up task, which is why the
+// bug only appeared after failures. Requiring a real TargetStartDate drops
+// those reinspection stubs; they'll reappear here once the inspector actually
+// books a new visit date.
 function collectScheduled(){
   const out = [];
   const startOfToday = new Date(); startOfToday.setHours(0,0,0,0);
@@ -1588,13 +1597,10 @@ function collectScheduled(){
       if (!isInspection(t)) continue;
       if (getCompleteFlag(t) === 'Y') continue;       // already happened — skip
       const target = getTargetDate(t);
-      const avail  = t.TaskAvailableDate;
-      // Prefer TargetStartDate; fall back to TaskAvailableDate so newly-released
-      // inspections without a scheduled visit still appear.
-      const when = target ? new Date(target) : (avail ? new Date(avail) : null);
-      if (!when) continue;
+      if (!target) continue;                          // require a real target date
+      const when = new Date(target);
       if (when < startOfToday) continue;              // drop overdue / stale rows
-      out.push({ p, t, target: when, isAvail: !target && !!avail });
+      out.push({ p, t, target: when });
     }
   }
   out.sort((a, b) => a.target - b.target);
@@ -1641,7 +1647,7 @@ function collectThisWeek(){
 function renderSchedRow(r){
   const addr = streetAddr(r.p);
   const desc = getTaskDesc(r.t) || r.t.TaskCode || '';
-  const dateLabel = (r.isAvail ? 'Available ' : '') + shortDate(r.target);
+  const dateLabel = shortDate(r.target);
   const search = (getAddr(r.p) + ' ' + desc + ' ' + (r.p.CaseNumber || '')).toLowerCase();
   return ''
     + '<div class="insp-row sched" data-search="' + esc(search) + '">'
