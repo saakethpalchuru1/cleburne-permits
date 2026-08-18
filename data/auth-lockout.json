@@ -1,0 +1,6 @@
+{
+  "locked": true,
+  "at": "2026-08-18T16:00:39.750Z",
+  "reason": "Login form never appeared. Check debug/no-password-field.png.",
+  "howToClear": "Update CITYWORKS_PASSWORD in Render env vars to the correct value, then DELETE data/auth-lockout.json from the saakethpalchuru1/cleburne-permits repo. The next scheduled cron run (or a manual Trigger Run) will resume normally."
+}
