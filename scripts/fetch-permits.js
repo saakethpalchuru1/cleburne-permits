@@ -75,6 +75,12 @@ async function ghPutJson(filePath, obj, message) {
 // from repeatedly hitting the login endpoint and getting the account locked
 // out of the city website. To clear it: delete data/auth-lockout.json from the
 // repo (Actions won't run, but the file is small — one click in the GitHub UI).
+// Auto-expire the marker after this many hours. Worst case (real password
+// rotation goes unsynced), the cron burns one attempt every 12 hours — not
+// every hour, so the account still won't get locked out — but the failure is
+// self-healing without needing a human to delete the file.
+const LOCK_EXPIRES_HOURS = 12;
+
 async function isAuthLockedOut() {
   if (!GITHUB_TOKEN || !GITHUB_REPO) return null; // no repo — can't check
   const apiUrl = `https://api.github.com/repos/${GITHUB_REPO}/contents/${LOCK_FILE}?ref=${encodeURIComponent(GITHUB_BRANCH)}`;
@@ -85,7 +91,15 @@ async function isAuthLockedOut() {
     const body = await resp.json();
     // Contents API returns base64-encoded content.
     const decoded = JSON.parse(Buffer.from(body.content || '', 'base64').toString('utf-8'));
-    return decoded && decoded.locked === true ? decoded : null;
+    if (!decoded || decoded.locked !== true) return null;
+    // Auto-expire — even a real credentials rejection stops blocking after 12h,
+    // so a single bad-password event doesn't freeze the cron indefinitely.
+    const ageMs = Date.now() - new Date(decoded.at || 0).getTime();
+    if (ageMs > LOCK_EXPIRES_HOURS * 3600000) {
+      console.log(`[lockout] marker is ${(ageMs / 3600000).toFixed(1)}h old (> ${LOCK_EXPIRES_HOURS}h) — expired, ignoring.`);
+      return null;
+    }
+    return decoded;
   } catch (e) {
     console.log('[lockout] check failed (fail-open):', e.message);
     return null;
@@ -101,18 +115,28 @@ async function writeAuthLockout(reason) {
     locked: true,
     at: new Date().toISOString(),
     reason,
+    expiresAfterHours: LOCK_EXPIRES_HOURS,
     howToClear:
-      'Update CITYWORKS_PASSWORD in Render env vars to the correct value, then DELETE ' +
+      `This marker auto-expires after ${LOCK_EXPIRES_HOURS} hours. To resume ` +
+      'sooner: update CITYWORKS_PASSWORD in Render env vars (if changed), then DELETE ' +
       `${LOCK_FILE} from the ${GITHUB_REPO} repo. The next scheduled cron run (or a manual Trigger Run) ` +
       'will resume normally.',
   };
   try {
     await ghPutJson(LOCK_FILE, payload,
       `chore: freeze auth — ${reason.slice(0, 60)} (${new Date().toISOString()})`);
-    console.log(`[lockout] wrote ${LOCK_FILE} to ${GITHUB_REPO} — future runs will short-circuit.`);
+    console.log(`[lockout] wrote ${LOCK_FILE} to ${GITHUB_REPO} — future runs short-circuit for up to ${LOCK_EXPIRES_HOURS}h.`);
   } catch (e) {
     console.error('[lockout] failed to write marker:', e.message);
   }
+}
+
+// Only errors of THIS kind persist the kill-switch marker. Anything else
+// (page.goto timeouts, "login form never rendered", network hiccups) is
+// treated as transient — the current run fails, but the next scheduled run
+// gets to try fresh.
+class CredentialsRejectedError extends Error {
+  constructor(message) { super(message); this.name = 'CredentialsRejectedError'; }
 }
 
 // Back-compat name for the data-push callsite at the bottom of this file.
@@ -142,11 +166,14 @@ async function dumpDebug(page, tag) {
   // the Cityworks account locked out after a password change goes unsynced.
   const lockedRecord = await isAuthLockedOut();
   if (lockedRecord) {
+    const ageH = ((Date.now() - new Date(lockedRecord.at).getTime()) / 3600000).toFixed(1);
+    const remainH = Math.max(0, (LOCK_EXPIRES_HOURS - Number(ageH))).toFixed(1);
     console.log('=========================================================');
     console.log('AUTH LOCKOUT ACTIVE — skipping this run.');
-    console.log(`  Marker written at: ${lockedRecord.at}`);
+    console.log(`  Marker written at: ${lockedRecord.at}  (${ageH}h ago)`);
     console.log(`  Reason: ${lockedRecord.reason}`);
-    console.log(`  To resume: delete ${LOCK_FILE} from ${GITHUB_REPO}.`);
+    console.log(`  Auto-expires in: ${remainH}h`);
+    console.log(`  To resume sooner: delete ${LOCK_FILE} from ${GITHUB_REPO}.`);
     console.log('=========================================================');
     process.exit(0);   // exit(0) so Render doesn't flag it as a failed run
   }
@@ -229,8 +256,11 @@ async function dumpDebug(page, tag) {
       page.waitForURL(u => !/login/i.test(u.toString()), { timeout: 30000 }),
     ]);
   } catch (e) {
+    // Credentials were rejected — we submitted the form, but 30s later the
+    // password field is still on the page AND the URL still has /login/.
+    // Only this specific failure trips the kill switch.
     await dumpDebug(page, 'login-not-progressing');
-    throw new Error('Login submitted but page did not advance.');
+    throw new CredentialsRejectedError('Login submitted but page did not advance — credentials rejected.');
   }
 
   console.log('Post-login URL:', page.url());
@@ -240,13 +270,24 @@ async function dumpDebug(page, tag) {
   }
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   } catch (loginErr) {
-    // Anything failing between the goto and the post-login URL check is treated
-    // as an auth-level failure: bad credentials, MFA prompt, site rejecting
-    // our headless UA, etc. All roads lead to "stop trying until a human
-    // clears the marker."
-    console.error('Auth failure during login step:', loginErr.message);
-    await dumpDebug(page, 'auth-failure').catch(() => {});
-    await writeAuthLockout(loginErr.message).catch(() => {});
+    // Two categories:
+    //   (a) CredentialsRejectedError — password was actually rejected. Write
+    //       the kill-switch marker so we stop hammering the login endpoint
+    //       and getting the account locked out.
+    //   (b) Anything else (Playwright timeouts, missing login form, network
+    //       errors) — treat as TRANSIENT. Fail this run so Render alerts on
+    //       it, but don't write the marker; the next hourly run will try again.
+    const isCredentials = loginErr instanceof CredentialsRejectedError;
+    await dumpDebug(page, isCredentials ? 'credentials-rejected' : 'login-transient').catch(() => {});
+    if (isCredentials) {
+      console.error('Credentials rejected by Cityworks — writing kill-switch marker.');
+      console.error('  ' + loginErr.message);
+      await writeAuthLockout(loginErr.message).catch(() => {});
+    } else {
+      console.error('Transient login-step error (NOT writing kill-switch marker):');
+      console.error('  ' + loginErr.message);
+      console.error('  Next scheduled cron run will retry. Check debug/login-transient.png if this repeats.');
+    }
     await browser.close().catch(() => {});
     process.exit(1);
   }
