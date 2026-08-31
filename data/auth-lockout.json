@@ -1,6 +1,0 @@
-{
-  "locked": true,
-  "at": "2026-08-26T20:24:45.700Z",
-  "reason": "page.goto: Timeout 45000ms exceeded.\nCall log:\n  - navigating to \"https://cityworks.cleburne.net/Permits/?currentRoutePath=/login\", waiting until \"domcontentloaded\"\n",
-  "howToClear": "Update CITYWORKS_PASSWORD in Render env vars to the correct value, then DELETE data/auth-lockout.json from the saakethpalchuru1/cleburne-permits repo. The next scheduled cron run (or a manual Trigger Run) will resume normally."
-}
