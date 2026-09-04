@@ -1,5 +1,5 @@
 {
-  "generated": 1788534089924,
+  "generated": 1788537691301,
   "permits": [
     {
       "AcceptedByLoginId": "preetam@arcturusinv.com",
@@ -244488,7 +244488,7 @@
           "DisciplineCode": "BUILDING",
           "DisciplineDesc": "Building Inspections",
           "CreatedByLoginId": "casey.jones",
-          "ModifiedByLoginId": null,
+          "ModifiedByLoginId": "dmyers@arcturusinv.com",
           "ResultDisplay": null,
           "CloseTaskFlag": null,
           "NextTaskFlag": null,
@@ -244554,8 +244554,8 @@
           "ResponsibleUserId": 128,
           "StartPoint": 4,
           "EndPoint": 5,
-          "TargetStartDate": null,
-          "TargetEndDate": null,
+          "TargetStartDate": "2026-09-08T14:15:00Z",
+          "TargetEndDate": "2026-09-08T14:30:00Z",
           "ActualStartDate": null,
           "ActualEndDate": null,
           "TaskAvailableFlag": "Y",
@@ -244581,8 +244581,8 @@
           "DateExpired": null,
           "CreatedBy": 8338,
           "DateCreated": "2026-09-04T14:44:40Z",
-          "ModifiedBy": null,
-          "DateModified": null,
+          "ModifiedBy": 6876,
+          "DateModified": "2026-09-04T15:19:38Z",
           "ResultId": null,
           "ResultSetDesc": "Pass/PartialPass/Fail/FailFees//NA",
           "Unit": null,
