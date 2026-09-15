@@ -1,5 +1,5 @@
 {
-  "generated": 1789426896747,
+  "generated": 1789470092854,
   "permits": [
     {
       "AcceptedByLoginId": "preetam@arcturusinv.com",
@@ -153377,8 +153377,8 @@
           "PaMultiInspFlag": null,
           "IsReinspection": false,
           "Location": "1404 BRUSHY CREEK DR, CLEBURNE, TX, 76033",
-          "CX": -10843570.3144852,
-          "CY": 3809870.74484934,
+          "CX": -10843570.3183167,
+          "CY": 3809870.74288141,
           "CZ": null,
           "CaTaskCommentsJsonString": null,
           "HasComments": false,
@@ -154389,8 +154389,8 @@
           "PaMultiInspFlag": null,
           "IsReinspection": false,
           "Location": "1404 BRUSHY CREEK DR, CLEBURNE, TX, 76033",
-          "CX": -10843570.3144852,
-          "CY": 3809870.74484934,
+          "CX": -10843570.3183167,
+          "CY": 3809870.74288141,
           "CZ": null,
           "CaTaskCommentsJsonString": null,
           "HasComments": false,
