@@ -1,5 +1,5 @@
 {
-  "generated": 1789664509954,
+  "generated": 1789668067610,
   "permits": [
     {
       "AcceptedByLoginId": "preetam@arcturusinv.com",
@@ -284204,7 +284204,7 @@
         "FACILITY_ID:Facility_Id",
         "LEVEL_ID:Level_Id"
       ],
-      "ModifiedByLoginId": "externaluser",
+      "ModifiedByLoginId": "stephanie.flannery-s",
       "ParentCaObjectId": null,
       "PendingFlag": null,
       "RegisteredFlag": "Y",
@@ -284243,9 +284243,9 @@
       "DateAccepted": "2026-04-12T00:15:04Z",
       "DateCreated": "2026-04-11T23:42:41Z",
       "DateEntered": "2026-04-11T23:42:41Z",
-      "DateExpiration": "2026-11-15T19:41:43Z",
+      "DateExpiration": "2027-04-27T18:41:00Z",
       "DateIssued": "2026-05-19T18:41:43Z",
-      "DateModified": "2026-05-19T18:41:43Z",
+      "DateModified": "2026-09-17T17:53:35Z",
       "EnteredBy": 6724,
       "ExpiredFlag": "N",
       "Facility_Id": null,
@@ -284254,7 +284254,7 @@
       "IssuedFlag": "Y",
       "Level_Id": null,
       "Location": "1404 TRAIL CREEK DR, CLEBURNE, TX, 76033",
-      "ModifiedBy": 22,
+      "ModifiedBy": 1278,
       "OrgId": 1,
       "PACaseFlag": null,
       "PriorityLevel": null,
