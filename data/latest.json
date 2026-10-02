@@ -1,5 +1,5 @@
 {
-  "generated": 1790964129456,
+  "generated": 1790967731958,
   "permits": [
     {
       "AcceptedByLoginId": "preetam@arcturusinv.com",
@@ -230403,7 +230403,7 @@
           "StartPoint": 4,
           "EndPoint": 5,
           "TargetStartDate": "2026-09-30T10:15:00Z",
-          "TargetEndDate": "2026-10-01T10:30:00Z",
+          "TargetEndDate": "2026-10-05T10:30:00Z",
           "ActualStartDate": null,
           "ActualEndDate": null,
           "TaskAvailableFlag": "Y",
@@ -230430,7 +230430,7 @@
           "CreatedBy": 8338,
           "DateCreated": "2026-09-28T16:05:51Z",
           "ModifiedBy": 8338,
-          "DateModified": "2026-09-30T13:32:48Z",
+          "DateModified": "2026-10-02T18:40:03Z",
           "ResultId": null,
           "ResultSetDesc": "Pass/PartialPass/Fail/FailFees//NA",
           "Unit": null,
@@ -233961,7 +233961,7 @@
           "StartPoint": 4,
           "EndPoint": 5,
           "TargetStartDate": "2026-09-30T16:00:00Z",
-          "TargetEndDate": "2026-10-01T16:15:00Z",
+          "TargetEndDate": "2026-10-05T16:15:00Z",
           "ActualStartDate": null,
           "ActualEndDate": null,
           "TaskAvailableFlag": "Y",
@@ -233988,7 +233988,7 @@
           "CreatedBy": 2133,
           "DateCreated": "2026-09-29T14:54:26Z",
           "ModifiedBy": 8338,
-          "DateModified": "2026-09-30T13:52:58Z",
+          "DateModified": "2026-10-02T18:40:16Z",
           "ResultId": null,
           "ResultSetDesc": "Pass/PartialPass/Fail/FailFees//NA",
           "Unit": null,
