@@ -1,5 +1,5 @@
 {
-  "generated": 1791320516931,
+  "generated": 1791324097454,
   "permits": [
     {
       "AcceptedByLoginId": "preetam@arcturusinv.com",
@@ -230330,9 +230330,9 @@
           "DepartmentName": "Community Development",
           "DivisionCode": "BLDGINSP",
           "DivisionName": "Building Inspections",
-          "LoginId": "safe.built",
-          "FirstName": "Safe",
-          "LastName": "Built",
+          "LoginId": "casey.jones",
+          "FirstName": "Casey",
+          "LastName": "Jones",
           "DisciplineCode": "BUILDING",
           "DisciplineDesc": "Building Inspections",
           "CreatedByLoginId": "casey.jones",
@@ -230399,7 +230399,7 @@
           "DefDurationTime": 15,
           "ResponsibleDeptId": 4,
           "ResponsibleDivId": 3,
-          "ResponsibleUserId": 154,
+          "ResponsibleUserId": 8338,
           "StartPoint": 4,
           "EndPoint": 5,
           "TargetStartDate": "2026-10-07T10:15:00Z",
@@ -230430,7 +230430,7 @@
           "CreatedBy": 8338,
           "DateCreated": "2026-09-28T16:05:51Z",
           "ModifiedBy": 1278,
-          "DateModified": "2026-10-06T18:53:08Z",
+          "DateModified": "2026-10-06T21:34:57Z",
           "ResultId": null,
           "ResultSetDesc": "Pass/PartialPass/Fail/FailFees//NA",
           "Unit": null,
