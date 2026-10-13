@@ -97,6 +97,11 @@
   .batch{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
   .batch-head{padding:10px 14px;background:var(--panel2);display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--border)}
   .batch-title{display:flex;align-items:center;gap:10px}
+  /* Compact house-number list below the batch stats. Grouped by street,
+     street name shown once per group (e.g. "1421,1419,1426 Dry · 909 McAnear"). */
+  .batch-addrs{color:#cbd5e1;font-size:12px;margin-top:3px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1px}
+  .batch-addrs .street{color:var(--muted);font-weight:400;font-family:inherit}
+  .batch-addrs .sep{color:#475569;margin:0 6px}
   .batch-num{background:var(--accent);color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:0 0 auto}
   .batch-name{font-weight:600;font-size:14px}
   .batch-stats{color:var(--muted);font-size:12px}
@@ -995,6 +1000,30 @@ function permitCard(p, compact){
     + '</article>';
 }
 
+// Compress a batch's address list into "1421,1419,1426 Dry · 909 McAnear"
+// format — one entry per street, numbers comma-joined, so the street name
+// isn't repeated for every unit. "Dry Creek Dr" collapses to "Dry",
+// "Brushy Creek Dr" to "Brushy", "Trail Creek Dr" to "Trail". Everything else
+// (Holly, McAnear) keeps its base name.
+function compactAddressList(addrs){
+  const byStreet = new Map();   // street -> ordered list of house numbers (strings)
+  for (const a of (addrs || [])) {
+    const m = (a||'').trim().match(/^(\d+)\s+(.+?)(?:\s+(?:Dr|Drive|St|Street|Rd|Road|Ave|Avenue))?$/i);
+    if (!m) continue;
+    let street = m[2].trim();
+    // Collapse "<Name> Creek" to just "<Name>" — most of our streets are *Creek*.
+    street = street.replace(/\s+Creek$/i, '');
+    if (!byStreet.has(street)) byStreet.set(street, []);
+    byStreet.get(street).push(m[1]);
+  }
+  if (!byStreet.size) return '';
+  const parts = [];
+  for (const [street, nums] of byStreet) {
+    parts.push(esc(nums.join(',')) + ' <span class="street">' + esc(street) + '</span>');
+  }
+  return parts.join('<span class="sep">·</span>');
+}
+
 function batchCard(batchNum, addrs, permitsInBatch){
   const totalTasks = permitsInBatch.reduce((a,b) => a + ((b.permit&&b.permit.Tasks)||[]).length, 0);
   const doneTasks = permitsInBatch.reduce((a,b) => a + ((b.permit&&b.permit.Tasks)||[]).filter(t=>t.TaskCompleteFlag==='Y').length, 0);
@@ -1031,7 +1060,8 @@ function batchCard(batchNum, addrs, permitsInBatch){
     + '<div class="batch-head"><div class="batch-title">'
     +   '<div class="batch-num">' + batchNum + '</div>'
     +   '<div><div class="batch-name">Batch ' + batchNum + '</div>'
-    +   '<div class="batch-stats">' + matched + '/' + addrs.length + ' permits matched · ' + doneTasks + '/' + totalTasks + ' tasks done (' + pct + '%)</div></div>'
+    +   '<div class="batch-stats">' + matched + '/' + addrs.length + ' permits matched · ' + doneTasks + '/' + totalTasks + ' tasks done (' + pct + '%)</div>'
+    +   '<div class="batch-addrs">' + compactAddressList(addrs) + '</div></div>'
     + '</div>'
     +   '<button class="batch-toggle" data-batch-toggle="' + esc(batchNum) + '">' + collapseLabel + '</button>'
     + '</div>'
