@@ -97,11 +97,12 @@
   .batch{background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
   .batch-head{padding:10px 14px;background:var(--panel2);display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--border)}
   .batch-title{display:flex;align-items:center;gap:10px}
-  /* Compact house-number list below the batch stats. Grouped by street,
-     street name shown once per group (e.g. "1421,1419,1426 Dry · 909 McAnear"). */
-  .batch-addrs{color:#cbd5e1;font-size:12px;margin-top:3px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1px}
-  .batch-addrs .street{color:var(--muted);font-weight:400;font-family:inherit}
-  .batch-addrs .sep{color:#475569;margin:0 6px}
+  /* Compact house-number list on each Batch Status overview card. Grouped by
+     street, street name shown once per group (e.g. "1421,1419,1426 Dry ·
+     909 McAnear"). Lives in the top overview cards, not the batch cards below. */
+  .bo-addrs{color:#cbd5e1;font-size:11.5px;margin:2px 0 3px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.1px;line-height:1.3}
+  .bo-addrs .street{color:var(--muted);font-weight:400;font-family:inherit}
+  .bo-addrs .sep{color:#475569;margin:0 5px}
   .batch-num{background:var(--accent);color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex:0 0 auto}
   .batch-name{font-weight:600;font-size:14px}
   .batch-stats{color:var(--muted);font-size:12px}
@@ -1060,8 +1061,7 @@ function batchCard(batchNum, addrs, permitsInBatch){
     + '<div class="batch-head"><div class="batch-title">'
     +   '<div class="batch-num">' + batchNum + '</div>'
     +   '<div><div class="batch-name">Batch ' + batchNum + '</div>'
-    +   '<div class="batch-stats">' + matched + '/' + addrs.length + ' permits matched · ' + doneTasks + '/' + totalTasks + ' tasks done (' + pct + '%)</div>'
-    +   '<div class="batch-addrs">' + compactAddressList(addrs) + '</div></div>'
+    +   '<div class="batch-stats">' + matched + '/' + addrs.length + ' permits matched · ' + doneTasks + '/' + totalTasks + ' tasks done (' + pct + '%)</div></div>'
     + '</div>'
     +   '<button class="batch-toggle" data-batch-toggle="' + esc(batchNum) + '">' + collapseLabel + '</button>'
     + '</div>'
@@ -1219,11 +1219,15 @@ function renderBatchOverview(){
         + s.pending.length + ' of ' + n + ' behind: ' + esc(names)
         + '</div>';
     }).join('');
+    const addrSummary = compactAddressList(r.permits.map(e => e.addr));
     return '<div class="bo-card ' + statusCls + '">'
       + '<div class="bo-hdr">'
       +   '<div class="bo-num">' + esc(r.batch) + '</div>'
-      +   '<div style="flex:1"><div class="bo-title">Batch ' + esc(r.batch) + '</div>'
-      +     '<div class="batch-overview-sub">' + subtitle + '</div></div>'
+      +   '<div style="flex:1;min-width:0">'
+      +     '<div class="bo-title">Batch ' + esc(r.batch) + '</div>'
+      +     (addrSummary ? '<div class="bo-addrs">' + addrSummary + '</div>' : '')
+      +     '<div class="batch-overview-sub">' + subtitle + '</div>'
+      +   '</div>'
       +   '<span class="bo-status ' + statusCls + '">' + esc(statusText) + '</span>'
       + '</div>'
       + '<div class="bo-strip">' + strip + '</div>'
