@@ -1,5 +1,5 @@
 {
-  "generated": 1791982909260,
+  "generated": 1791986523954,
   "permits": [
     {
       "AcceptedByLoginId": "preetam@arcturusinv.com",
@@ -154894,7 +154894,7 @@
           "SubType": "BPELECTRIC",
           "SubTypeDesc": "Electrical Permit",
           "CaseNumber": "RES2026-1370",
-          "CaseName": "HOLD ELECTRICAL ",
+          "CaseName": "ELECTRICAL ",
           "ProjectId": null,
           "ProjectCode": null,
           "ProjectDesc": null,
@@ -155906,7 +155906,7 @@
           "SubType": "BPELECTRIC",
           "SubTypeDesc": "Electrical Permit",
           "CaseNumber": "RES2026-1370",
-          "CaseName": "HOLD ELECTRICAL ",
+          "CaseName": "ELECTRICAL ",
           "ProjectId": null,
           "ProjectCode": null,
           "ProjectDesc": null,
