@@ -1,5 +1,5 @@
 {
-  "generated": 1793797343791,
+  "generated": 1793800941091,
   "permits": [
     {
       "AcceptedByLoginId": "preetam@arcturusinv.com",
@@ -96032,7 +96032,7 @@
           "ProjectCode": null,
           "ProjectDesc": null,
           "CaseStatusID": null,
-          "CaseStatus": "ISSUE",
+          "CaseStatus": "EXPIRED",
           "StatusCode": null,
           "TableName": null,
           "IsScheduler": false,
@@ -119182,7 +119182,7 @@
           "ProjectCode": null,
           "ProjectDesc": null,
           "CaseStatusID": null,
-          "CaseStatus": "ISSUE",
+          "CaseStatus": "EXPIRED",
           "StatusCode": null,
           "TableName": null,
           "IsScheduler": false,
@@ -152021,7 +152021,7 @@
           "ProjectCode": null,
           "ProjectDesc": null,
           "CaseStatusID": null,
-          "CaseStatus": "ISSUE",
+          "CaseStatus": "EXPIRED",
           "StatusCode": null,
           "TableName": null,
           "IsScheduler": false,
@@ -153062,7 +153062,7 @@
           "ProjectCode": null,
           "ProjectDesc": null,
           "CaseStatusID": null,
-          "CaseStatus": "ISSUE",
+          "CaseStatus": "EXPIRED",
           "StatusCode": null,
           "TableName": null,
           "IsScheduler": false,
