@@ -1,5 +1,5 @@
 {
-  "generated": 1793919734178,
+  "generated": 1793962934808,
   "permits": [
     {
       "AcceptedByLoginId": "preetam@arcturusinv.com",
@@ -255750,8 +255750,8 @@
           "PaMultiInspFlag": null,
           "IsReinspection": false,
           "Location": "1414 TRAIL CREEK DR, CLEBURNE, TX, 76033",
-          "CX": -10843709.6310464,
-          "CY": 3809894.55876864,
+          "CX": -10843709.6310271,
+          "CY": 3809894.56040948,
           "CZ": null,
           "CaTaskCommentsJsonString": null,
           "HasComments": false,
@@ -256791,8 +256791,8 @@
           "PaMultiInspFlag": null,
           "IsReinspection": false,
           "Location": "1414 TRAIL CREEK DR, CLEBURNE, TX, 76033",
-          "CX": -10843709.6310464,
-          "CY": 3809894.55876864,
+          "CX": -10843709.6310271,
+          "CY": 3809894.56040948,
           "CZ": null,
           "CaTaskCommentsJsonString": null,
           "HasComments": false,
