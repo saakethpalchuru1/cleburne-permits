@@ -1,5 +1,5 @@
 {
-  "generated": 1795093339281,
+  "generated": 1795096943138,
   "permits": [
     {
       "AcceptedByLoginId": "preetam@arcturusinv.com",
@@ -146529,7 +146529,7 @@
           "ProjectCode": null,
           "ProjectDesc": null,
           "CaseStatusID": null,
-          "CaseStatus": "ISSUE",
+          "CaseStatus": "EXPIRED",
           "StatusCode": null,
           "TableName": null,
           "IsScheduler": false,
